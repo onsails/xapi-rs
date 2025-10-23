@@ -1,0 +1,932 @@
+# Rust-Based X (Twitter) API v2 Client Library for Bot Development
+
+<context>
+# Overview
+
+The X API v2 Client Library is a type-safe, async-first Rust library designed to provide complete access to the X (Twitter) API v2 for bot developers. Built on Tokio and modern async patterns, it addresses the complexity of Twitter bot development by offering intelligent rate limit management, automatic retry logic, comprehensive streaming support, and ergonomic API design. The library solves critical challenges faced by bot developers: managing authentication across multiple methods, handling rate limits gracefully, maintaining long-lived streaming connections, and providing type-safe request construction that prevents runtime errors.
+
+Bot developers today struggle with low-level HTTP details, authentication complexity, rate limit tracking, and streaming connection management. This library abstracts these concerns while maintaining flexibility and performance. By providing a unified interface for all X API v2 endpoints with automatic retry logic, backfill support for streaming disconnections, and intelligent request queuing, developers can focus on bot logic rather than API mechanics.
+
+The library targets Rust developers building automated systems including customer service bots, content curation engines, real-time monitoring systems, social media automation, and research analytics platforms. It provides production-ready infrastructure for both simple single-purpose bots and complex multi-account systems processing thousands of tweets per minute.
+
+# Core Features
+
+**Complete API Coverage**: Full implementation of all X API v2 endpoints including tweets (posting, search, timelines, counts), users (lookup, follows, blocks, mutes), spaces (lookup, search), lists (CRUD operations, membership), direct messages (1-to-1 and group conversations), compliance endpoints, and communities. Each endpoint exposed through type-safe Rust methods with builder patterns for request construction.
+
+**Multi-Authentication Support**: Native support for OAuth 1.0a user context, OAuth 2.0 bearer tokens (app-only), and OAuth 2.0 PKCE with fine-grained scopes. Automatic authentication header generation, token refresh for OAuth 2.0, and middleware architecture supporting custom authentication strategies. Handles authentication mapping automatically based on endpoint requirements.
+
+**Intelligent Rate Limit Management**: Proactive rate limit tracking using x-rate-limit-* headers, automatic request queuing when limits approached, per-endpoint limit monitoring, and adaptive request pacing. Implements exponential backoff with jitter for 429 responses, respects x-rate-limit-reset timestamps, and provides callbacks for rate limit events. Supports both app-level and user-level rate limits with separate quota tracking.
+
+**Robust Streaming Support**: Production-ready implementation of filtered streams, volume streams (1% and 10% sample), and real-time rule management without disconnection. Automatic reconnection with exponential backoff, heartbeat monitoring with 90-second timeout detection, backfill support for missed data (5-minute and 24-hour recovery), and redundant connection capability for high availability. Includes duplicate message handling and ordered processing guarantees.
+
+**Type-Safe Request/Response Models**: Strongly-typed data structures for all API objects (Tweet, User, Space, List, Media, Poll, Place, DirectMessage, Community) with builder patterns for complex queries. Compile-time verification of required fields, enum-based options instead of string literals, and comprehensive field expansion support. Serde-based serialization with custom deserializers for API quirks.
+
+**Automatic Retry Logic**: Configurable retry strategies using backoff crate, intelligent error classification (transient vs permanent), automatic retry for network errors and 5xx responses, exponential backoff with maximum attempts, and request deduplication. Provides hooks for custom retry policies and detailed retry event logging.
+
+**Bot-Optimized Features**: High-level abstractions for common bot patterns including mention monitoring with conversation threading, keyword tracking with boolean rule composition, scheduled posting with cron syntax, state management for multi-user conversations, and webhook support for enterprise users. Includes rate-limited response systems and duplicate detection.
+
+# User Experience
+
+**Primary User Personas**:
+
+*Bot Developer (Alex)* - Building automated Twitter bots for brands, needs reliable posting, mention monitoring, and conversation management. Values ease of use, automatic error handling, and clear documentation. Uses library through simple async APIs with builder patterns.
+
+*Data Scientist (Jamie)* - Collecting Twitter data for research and analysis, requires streaming API access, bulk data collection, and historical search. Needs efficient pagination handling, streaming reconnection, and data export capabilities. Interacts via streaming iterators and batch collection methods.
+
+*DevOps Engineer (Sam)* - Deploying production bots at scale, prioritizes reliability, observability, and error recovery. Requires detailed logging, metrics integration, health checks, and graceful degradation. Configures library through builder patterns with extensive monitoring hooks.
+
+**Key User Flows**:
+
+*Simple Tweet Posting Flow*: Developer creates authenticated client with OAuth credentials → constructs tweet using TweetBuilder with text/media/poll → calls post_tweet() → library handles rate limiting → receives Tweet object with ID → stores ID for tracking. Errors automatically retried or surfaced with clear context.
+
+*Mention Monitoring Bot Flow*: Developer configures filtered stream client → adds rule "@botname -is:retweet" with tag → connects to stream → receives tweets as async iterator → processes each mention in parallel task pool → generates response → posts reply using reply builder → tracks conversation_id for threading. Automatic reconnection on disconnect with backfill recovery.
+
+*Bulk User Lookup Flow*: Developer provides Vec<UserId> with 100+ IDs → calls batch_lookup_users() with field expansions → library chunks requests to respect batch size limits → manages rate limits across chunks → streams results as they arrive → aggregates into complete dataset → handles partial failures gracefully. Progress callbacks for long-running operations.
+
+*Streaming with Rules Management Flow*: Developer creates StreamClient → adds multiple filtering rules using RuleBuilder → connects stream → monitors real-time tweets → dynamically adds/removes rules without disconnecting → handles rule validation errors → receives rule match notifications → processes high-volume streams with backpressure handling.
+
+**Developer Experience Principles**: API calls read naturally with method chaining, all async operations use standard Tokio patterns, errors provide actionable context with retry suggestions, comprehensive examples for every common use case, zero-cost abstractions maintaining performance, compile-time verification preventing invalid requests, and detailed tracing integration for debugging production issues.
+
+</context>
+
+<PRD>
+# Technical Architecture
+
+## Core Dependencies
+- **Runtime**: Tokio 1.40+ with multi-threaded runtime, enable features: `rt-multi-thread`, `macros`, `time`, `sync`
+- **HTTP Client**: reqwest 0.12+ with features: `json`, `stream`, `cookies`, `gzip`
+- **Error Handling**: thiserror 1.0+ for library errors, anyhow compatible for user applications
+- **Rate Limiting**: governor 0.7+ with token bucket algorithm, Quota configuration per endpoint
+- **Retry Logic**: backoff 0.4+ with ExponentialBackoff, configurable max_elapsed_time
+- **Serialization**: serde 1.0+ with derive features, serde_json for JSON processing
+- **Async Streams**: tokio-stream 0.1+ for Stream trait, async-stream 0.4+ for stream! macro
+- **Scheduling**: tokio-cron-scheduler 0.13+ for bot scheduling (optional feature)
+- **Authentication**: oauth1 0.6+ for OAuth 1.0a signing, oauth2 0.4+ for OAuth 2.0 flows
+
+## Crate Structure
+```
+x-api-client/
+├── src/
+│   ├── lib.rs                  # Public API surface
+│   ├── client.rs               # Main Client struct
+│   ├── auth/
+│   │   ├── mod.rs              # Auth trait definitions
+│   │   ├── oauth1.rs           # OAuth 1.0a implementation
+│   │   ├── oauth2.rs           # OAuth 2.0 implementation
+│   │   └── bearer.rs           # Bearer token implementation
+│   ├── endpoints/
+│   │   ├── mod.rs
+│   │   ├── tweets.rs           # Tweet operations
+│   │   ├── users.rs            # User operations
+│   │   ├── spaces.rs           # Spaces operations
+│   │   ├── lists.rs            # Lists operations
+│   │   ├── direct_messages.rs  # DM operations
+│   │   └── compliance.rs       # Compliance endpoints
+│   ├── streaming/
+│   │   ├── mod.rs
+│   │   ├── filtered.rs         # Filtered stream
+│   │   ├── sample.rs           # Sample streams
+│   │   ├── rules.rs            # Rule management
+│   │   └── reconnect.rs        # Reconnection logic
+│   ├── models/
+│   │   ├── mod.rs
+│   │   ├── tweet.rs            # Tweet data structures
+│   │   ├── user.rs             # User data structures
+│   │   ├── media.rs            # Media objects
+│   │   ├── space.rs            # Space objects
+│   │   ├── list.rs             # List objects
+│   │   └── common.rs           # Shared types
+│   ├── rate_limit/
+│   │   ├── mod.rs
+│   │   ├── tracker.rs          # Rate limit state tracking
+│   │   ├── queue.rs            # Request queuing
+│   │   └── middleware.rs       # Rate limit middleware
+│   ├── retry/
+│   │   ├── mod.rs
+│   │   ├── policy.rs           # Retry policies
+│   │   └── classifier.rs       # Error classification
+│   ├── pagination/
+│   │   ├── mod.rs
+│   │   └── cursor.rs           # Cursor-based pagination
+│   ├── error.rs                # Error types
+│   └── builder/
+│       ├── mod.rs
+│       ├── request.rs          # Request builders
+│       └── query.rs            # Query parameter builders
+```
+
+## Data Models
+
+**Core Request Types**:
+```rust
+TweetRequest {
+    text: String,                           // Required
+    reply_settings: Option<ReplySettings>,  // Enum: Everyone, MentionedUsers, Following
+    direct_message_deep_link: Option<String>,
+    for_super_followers_only: Option<bool>,
+    geo: Option<GeoTag>,
+    media_ids: Option<Vec<MediaId>>,
+    poll_options: Option<PollOptions>,
+    quote_tweet_id: Option<TweetId>,
+    reply_to_tweet_id: Option<TweetId>,
+}
+
+StreamRule {
+    value: String,          // Rule expression (1024 or 2048 chars)
+    tag: Option<String>,    // Descriptive tag
+    id: Option<RuleId>,     // Server-assigned on creation
+}
+
+PaginationParams {
+    max_results: Option<u32>,           // 1-100 depending on endpoint
+    pagination_token: Option<String>,   // Opaque cursor token
+    since_id: Option<TweetId>,
+    until_id: Option<TweetId>,
+    start_time: Option<DateTime<Utc>>,
+    end_time: Option<DateTime<Utc>>,
+}
+```
+
+**Core Response Types**:
+```rust
+ApiResponse<T> {
+    data: Option<T>,                    // Primary response data
+    includes: Option<Includes>,         // Expanded objects
+    meta: Option<ResponseMeta>,         // Pagination/metadata
+    errors: Option<Vec<ApiError>>,      // Partial errors
+}
+
+Tweet {
+    id: TweetId,                        // String-based ID
+    text: String,
+    edit_history_tweet_ids: Vec<TweetId>,
+    // Optional fields via TweetFields expansion
+    author_id: Option<UserId>,
+    created_at: Option<DateTime<Utc>>,
+    conversation_id: Option<TweetId>,
+    public_metrics: Option<TweetMetrics>,
+    attachments: Option<Attachments>,
+    entities: Option<Entities>,
+    geo: Option<Geo>,
+    referenced_tweets: Option<Vec<ReferencedTweet>>,
+}
+
+RateLimitInfo {
+    limit: u32,                         // x-rate-limit-limit
+    remaining: u32,                     // x-rate-limit-remaining  
+    reset: DateTime<Utc>,               // x-rate-limit-reset
+}
+```
+
+## Client Architecture
+
+**Trait-Based Design for Testability**:
+```rust
+#[async_trait]
+pub trait HttpClient: Send + Sync {
+    async fn request(&self, req: Request) -> Result<Response, ClientError>;
+}
+
+pub struct XClient<H: HttpClient = ReqwestClient> {
+    http: H,
+    auth: Box<dyn AuthProvider>,
+    rate_limiter: Arc<RateLimitTracker>,
+    retry_policy: RetryPolicy,
+    base_url: Url,
+}
+```
+
+**Authentication Provider Trait**:
+```rust
+#[async_trait]
+pub trait AuthProvider: Send + Sync {
+    async fn authenticate(&self, req: &mut Request) -> Result<(), AuthError>;
+    fn supports_endpoint(&self, endpoint: &str) -> bool;
+}
+
+// Implementations: OAuth1Provider, OAuth2BearerProvider, OAuth2PKCEProvider
+```
+
+**Rate Limit Middleware**:
+```rust
+pub struct RateLimitTracker {
+    limits: DashMap<String, RateLimitState>,  // Per-endpoint tracking
+    semaphore: Semaphore,                      // Global concurrency limit
+}
+
+impl RateLimitTracker {
+    pub async fn check_and_wait(&self, endpoint: &str) -> Result<()>;
+    pub fn update_from_headers(&self, endpoint: &str, headers: &HeaderMap);
+    pub async fn wait_for_reset(&self, endpoint: &str);
+}
+```
+
+## API Endpoints Implementation
+
+**Tweet Operations** (`endpoints/tweets.rs`):
+- `post_tweet(request: TweetRequest) -> Result<Tweet>`
+- `delete_tweet(id: TweetId) -> Result<DeleteResponse>`
+- `get_tweet(id: TweetId, fields: TweetFields) -> Result<Tweet>`
+- `get_tweets(ids: Vec<TweetId>, fields: TweetFields) -> Result<Vec<Tweet>>`
+- `search_recent(query: &str, params: SearchParams) -> Result<TweetSearchResponse>`
+- `search_all(query: &str, params: SearchParams) -> Result<TweetSearchResponse>` (Academic)
+- `get_user_tweets(user_id: UserId, params: TimelineParams) -> PaginatedStream<Tweet>`
+- `get_user_mentions(user_id: UserId, params: TimelineParams) -> PaginatedStream<Tweet>`
+- `like_tweet(user_id: UserId, tweet_id: TweetId) -> Result<LikeResponse>`
+- `unlike_tweet(user_id: UserId, tweet_id: TweetId) -> Result<()>`
+- `retweet(user_id: UserId, tweet_id: TweetId) -> Result<RetweetResponse>`
+- `undo_retweet(user_id: UserId, tweet_id: TweetId) -> Result<()>`
+- `hide_reply(tweet_id: TweetId, hidden: bool) -> Result<()>`
+
+**User Operations** (`endpoints/users.rs`):
+- `get_user(id: UserId, fields: UserFields) -> Result<User>`
+- `get_user_by_username(username: &str, fields: UserFields) -> Result<User>`
+- `get_users(ids: Vec<UserId>, fields: UserFields) -> Result<Vec<User>>`
+- `get_me(fields: UserFields) -> Result<User>` (requires user context auth)
+- `get_followers(user_id: UserId, params: FollowParams) -> PaginatedStream<User>`
+- `get_following(user_id: UserId, params: FollowParams) -> PaginatedStream<User>`
+- `follow_user(source_id: UserId, target_id: UserId) -> Result<FollowResponse>`
+- `unfollow_user(source_id: UserId, target_id: UserId) -> Result<()>`
+- `block_user(source_id: UserId, target_id: UserId) -> Result<BlockResponse>`
+- `unblock_user(source_id: UserId, target_id: UserId) -> Result<()>`
+- `mute_user(source_id: UserId, target_id: UserId) -> Result<MuteResponse>`
+- `unmute_user(source_id: UserId, target_id: UserId) -> Result<()>`
+
+**Streaming Operations** (`streaming/`):
+- `filtered_stream(rules: Vec<StreamRule>) -> FilteredStream` (implements Stream<Item=Result<Tweet>>)
+- `sample_stream() -> SampleStream` (1% sample)
+- `sample10_stream(partition: Partition) -> SampleStream` (10% sample, Enterprise)
+- `add_rules(rules: Vec<StreamRule>) -> Result<RuleResponse>`
+- `delete_rules(rule_ids: Vec<RuleId>) -> Result<()>`
+- `get_rules() -> Result<Vec<StreamRule>>`
+- `validate_rules(rules: Vec<StreamRule>) -> Result<ValidationResponse>` (dry run)
+
+**Lists Operations** (`endpoints/lists.rs`):
+- `create_list(params: CreateListParams) -> Result<List>`
+- `update_list(list_id: ListId, params: UpdateListParams) -> Result<List>`
+- `delete_list(list_id: ListId) -> Result<()>`
+- `get_list(list_id: ListId, fields: ListFields) -> Result<List>`
+- `get_user_owned_lists(user_id: UserId, params: ListParams) -> PaginatedStream<List>`
+- `get_list_tweets(list_id: ListId, params: TimelineParams) -> PaginatedStream<Tweet>`
+- `add_list_member(list_id: ListId, user_id: UserId) -> Result<()>`
+- `remove_list_member(list_id: ListId, user_id: UserId) -> Result<()>`
+- `follow_list(user_id: UserId, list_id: ListId) -> Result<()>`
+- `unfollow_list(user_id: UserId, list_id: ListId) -> Result<()>`
+- `pin_list(user_id: UserId, list_id: ListId) -> Result<()>`
+- `unpin_list(user_id: UserId, list_id: ListId) -> Result<()>`
+
+**Direct Messages Operations** (`endpoints/direct_messages.rs`):
+- `send_dm(participant_id: UserId, text: &str, attachments: Option<Attachments>) -> Result<DmEvent>`
+- `send_group_dm(conversation_id: ConversationId, text: &str) -> Result<DmEvent>`
+- `create_group_conversation(participant_ids: Vec<UserId>) -> Result<Conversation>`
+- `get_dm_events(conversation_id: ConversationId, params: DmParams) -> PaginatedStream<DmEvent>`
+- `get_dm_conversation(participant_id: UserId, params: DmParams) -> PaginatedStream<DmEvent>`
+
+**Spaces Operations** (`endpoints/spaces.rs`):
+- `get_space(space_id: SpaceId, fields: SpaceFields) -> Result<Space>`
+- `get_spaces(space_ids: Vec<SpaceId>, fields: SpaceFields) -> Result<Vec<Space>>`
+- `search_spaces(query: &str, state: SpaceState) -> Result<Vec<Space>>`
+- `get_spaces_by_creator(user_ids: Vec<UserId>) -> Result<Vec<Space>>`
+
+## Streaming Infrastructure
+
+**Connection Management**:
+```rust
+pub struct FilteredStream {
+    connection: StreamConnection,
+    reconnect_policy: ReconnectPolicy,
+    backfill_minutes: Option<u8>,
+    heartbeat_timeout: Duration,
+}
+
+impl Stream for FilteredStream {
+    type Item = Result<StreamMessage, StreamError>;
+    
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        // Handle reconnection, heartbeat monitoring, backfill
+    }
+}
+```
+
+**Reconnection Logic**:
+- Immediate reconnection on established connection drop
+- Exponential backoff for HTTP errors: start 5s, double each attempt, max 320s
+- Special handling for 420 errors: start 1min, double each attempt
+- Heartbeat monitoring: 90-second timeout (3 heartbeat cycles)
+- Backfill request on reconnection with `backfill_minutes=N` (1-5 mins)
+- Recovery streams for extended disconnections using `start_time`/`end_time`
+
+**Rule Management Without Disconnection**:
+```rust
+impl FilteredStream {
+    pub async fn add_rules(&mut self, rules: Vec<StreamRule>) -> Result<Vec<Rule>>;
+    pub async fn delete_rules(&mut self, rule_ids: Vec<RuleId>) -> Result<()>;
+    pub async fn get_rules(&self) -> Result<Vec<Rule>>;
+}
+```
+
+## Pagination Support
+
+**Paginated Stream Iterator**:
+```rust
+pub struct PaginatedStream<T> {
+    client: Arc<XClient>,
+    endpoint: String,
+    params: PaginationParams,
+    buffer: VecDeque<T>,
+    next_token: Option<String>,
+    exhausted: bool,
+}
+
+impl<T> Stream for PaginatedStream<T> {
+    type Item = Result<T, ApiError>;
+    // Automatically fetches next page when buffer empty
+}
+```
+
+**Usage Pattern**:
+```rust
+let mut stream = client.get_user_tweets(user_id, params);
+while let Some(tweet) = stream.next().await {
+    let tweet = tweet?;
+    // Process tweet
+}
+```
+
+## Error Handling
+
+**Error Type Hierarchy**:
+```rust
+#[derive(Error, Debug)]
+pub enum XApiError {
+    #[error("Rate limit exceeded, resets at {reset_at}")]
+    RateLimitExceeded { reset_at: DateTime<Utc>, endpoint: String },
+    
+    #[error("Authentication failed: {0}")]
+    AuthenticationError(String),
+    
+    #[error("Authorization failed: {0}")]
+    AuthorizationError(String),
+    
+    #[error("Invalid request: {0}")]
+    InvalidRequest(String),
+    
+    #[error("Resource not found: {0}")]
+    NotFound(String),
+    
+    #[error("Network error: {0}")]
+    NetworkError(#[from] reqwest::Error),
+    
+    #[error("Streaming connection error: {0}")]
+    StreamError(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(#[from] serde_json::Error),
+}
+
+pub struct ApiErrorDetail {
+    pub code: String,              // CAPS_CASE error code
+    pub message: String,           // Human-readable
+    pub parameter: Option<String>, // Problematic parameter
+    pub value: Option<String>,     // Problematic value
+    pub type_uri: String,          // Problem type URI
+}
+```
+
+**Retry Classification**:
+```rust
+impl XApiError {
+    pub fn is_retryable(&self) -> bool {
+        matches!(self, 
+            XApiError::NetworkError(_) |
+            XApiError::RateLimitExceeded { .. } |
+            // 5xx errors
+        )
+    }
+    
+    pub fn retry_after(&self) -> Option<Duration> {
+        match self {
+            XApiError::RateLimitExceeded { reset_at, .. } => {
+                Some((*reset_at - Utc::now()).to_std().unwrap_or_default())
+            },
+            _ => None
+        }
+    }
+}
+```
+
+## Bot Development Features
+
+**Mention Monitor Helper**:
+```rust
+pub struct MentionMonitor {
+    stream: FilteredStream,
+    processed_ids: LruCache<TweetId, ()>,
+    handler: Box<dyn FnMut(Tweet) -> BoxFuture<'static, Result<()>>>,
+}
+
+impl MentionMonitor {
+    pub async fn start(&mut self) {
+        while let Some(tweet) = self.stream.next().await {
+            if !self.processed_ids.contains(&tweet.id) {
+                (self.handler)(tweet).await;
+                self.processed_ids.put(tweet.id, ());
+            }
+        }
+    }
+}
+```
+
+**Scheduled Tweet Manager**:
+```rust
+pub struct TweetScheduler {
+    client: Arc<XClient>,
+    scheduler: JobScheduler,
+}
+
+impl TweetScheduler {
+    pub async fn schedule_tweet(&mut self, content: TweetRequest, cron: &str) -> Result<JobId>;
+    pub async fn cancel_scheduled(&mut self, job_id: JobId) -> Result<()>;
+    pub async fn list_scheduled(&self) -> Vec<ScheduledTweet>;
+}
+```
+
+**Conversation Tracker**:
+```rust
+pub struct ConversationTracker {
+    conversations: Arc<RwLock<HashMap<ConversationId, ConversationState>>>,
+}
+
+#[derive(Clone)]
+pub struct ConversationState {
+    pub tweets: Vec<Tweet>,
+    pub participants: HashSet<UserId>,
+    pub last_updated: DateTime<Utc>,
+}
+
+impl ConversationTracker {
+    pub async fn track_conversation(&self, tweet: Tweet);
+    pub async fn get_conversation(&self, id: ConversationId) -> Option<ConversationState>;
+}
+```
+
+## Configuration
+
+**Client Builder Pattern**:
+```rust
+let client = XClient::builder()
+    .auth(OAuth1Provider::new(consumer_key, consumer_secret, token, token_secret))
+    .rate_limit(RateLimitConfig {
+        global_limit: Some(1000),
+        per_endpoint_tracking: true,
+        auto_wait: true,
+    })
+    .retry_policy(RetryPolicy {
+        max_retries: 3,
+        initial_interval: Duration::from_secs(1),
+        max_interval: Duration::from_secs(60),
+        multiplier: 2.0,
+        jitter: true,
+    })
+    .timeout(Duration::from_secs(30))
+    .build()?;
+```
+
+# Development Roadmap
+
+**Phase 1 - Core Infrastructure (MVP)**:
+- Basic HTTP client wrapper with reqwest
+- OAuth 1.0a authentication implementation
+- Core data models (Tweet, User, basic fields only)
+- Essential tweet endpoints: post_tweet, delete_tweet, get_tweet
+- Essential user endpoints: get_user, get_user_by_username
+- Basic error handling with XApiError enum
+- Rate limit header parsing and storage
+- Simple exponential backoff retry
+- Unit tests for core functionality
+- Integration tests with mock server
+
+**Phase 2 - Rate Limiting and Pagination**:
+- RateLimitTracker with per-endpoint state
+- Automatic rate limit checking before requests
+- Wait-for-reset functionality
+- Request queueing when rate limited
+- Cursor-based pagination implementation
+- PaginatedStream iterator for timeline endpoints
+- Timeline endpoints: get_user_tweets, get_user_mentions
+- Search endpoints: search_recent (no full-archive yet)
+- Field expansion support (tweet.fields, user.fields)
+- Expansions support (author_id, attachments.media_keys)
+- Integration tests for pagination edge cases
+
+**Phase 3 - OAuth 2.0 and Complete Endpoints**:
+- OAuth 2.0 Bearer Token (App-Only) implementation
+- OAuth 2.0 PKCE flow with CORS support
+- Token refresh logic for OAuth 2.0
+- Remaining tweet endpoints: likes, retweets, bookmarks, hide replies, quotes
+- Remaining user endpoints: follows, blocks, mutes management
+- Lists endpoints: full CRUD, membership, follows, pinned lists
+- Spaces endpoints: lookup, search, buyers
+- Direct Messages endpoints: 1-to-1, group, conversation retrieval
+- Compliance endpoints: batch jobs, status checking
+- Media upload support (chunked upload for large files)
+- Poll creation and management
+- Enhanced error context with ApiErrorDetail
+
+**Phase 4 - Streaming Support**:
+- Filtered stream connection establishment
+- Stream rule management (add, delete, get, validate)
+- Heartbeat monitoring with 90-second timeout
+- Automatic reconnection with exponential backoff
+- Backfill support (backfill_minutes parameter)
+- Sample stream (1% volume)
+- Stream message parsing with field expansions
+- Duplicate message handling
+- Stream statistics tracking
+- Sample10 stream for Enterprise (with partitions)
+- Recovery streams for extended disconnections
+- Redundant connection support
+
+**Phase 5 - Bot Development Features**:
+- MentionMonitor helper with duplicate detection
+- TweetScheduler with tokio-cron-scheduler integration
+- ConversationTracker for threading support
+- Rate-limited response system with per-user cooldowns
+- State management with Arc<RwLock<>> patterns
+- Scheduled task persistence (SQLite or file-based)
+- Webhook support for Enterprise filtered streams
+- Advanced streaming rule builders with boolean operators
+- Real-time analytics helpers (volume tracking, sentiment placeholders)
+- Bot command pattern implementation examples
+- DM command parsing utilities
+
+**Phase 6 - Production Features**:
+- Comprehensive logging with tracing crate
+- Metrics instrumentation (prometheus compatible)
+- Request/response middleware system
+- Custom retry policies per endpoint
+- Circuit breaker pattern for failing endpoints
+- Connection pooling optimization
+- Request deduplication
+- Caching layer for frequently accessed data
+- Health check endpoints for monitoring
+- Graceful shutdown handling for streams
+- Performance benchmarks and optimization
+- Memory usage profiling and optimization
+
+**Phase 7 - Developer Experience**:
+- Comprehensive documentation with rustdoc
+- API usage examples for every endpoint
+- Bot development cookbook with patterns
+- Error handling guide with recovery strategies
+- Rate limit management best practices guide
+- Streaming reliability guide
+- Migration guide from other libraries
+- Debugging guide with tracing integration
+- Performance tuning guide
+- CLI tools for testing and development
+
+# Logical Dependency Chain
+
+**Foundation Layer** (Must be built first):
+- Core data models (Tweet, User, etc.) with serde derive
+- Error types hierarchy with thiserror
+- HTTP client trait abstraction for testability
+- OAuth 1.0a authentication provider
+- Basic XClient struct with builder pattern
+- Request/response middleware architecture
+
+**HTTP and Auth Layer** (Depends on Foundation):
+- Reqwest client implementation of HttpClient trait
+- OAuth signature generation and header construction
+- Request signing and header injection
+- Response parsing and error mapping
+- Mock HTTP client for testing
+
+**Rate Limiting Layer** (Depends on HTTP):
+- Rate limit header parsing from responses
+- RateLimitTracker with per-endpoint state management
+- Rate limit middleware integration
+- Automatic waiting before rate limit exceeded
+- Rate limit event callbacks
+
+**Basic Endpoints Layer** (Depends on Rate Limiting):
+- Tweet CRUD endpoints (post, get, delete)
+- User lookup endpoints (get by ID, get by username)
+- Field selection and expansion support
+- Query parameter building
+- Response deserialization with all optional fields
+
+**Retry Logic Layer** (Depends on Basic Endpoints):
+- Error classification (retryable vs permanent)
+- Exponential backoff implementation with backoff crate
+- Retry middleware integration
+- Request deduplication during retries
+- Retry event logging
+
+**Pagination Layer** (Depends on Retry Logic):
+- Pagination token extraction from meta object
+- PaginatedStream implementation
+- Automatic next page fetching
+- Timeline endpoints using pagination
+- Search endpoints with pagination
+
+**OAuth 2.0 Layer** (Depends on Basic Endpoints):
+- Bearer token authentication provider
+- PKCE authentication provider
+- Token refresh logic
+- Scope management
+- Authentication method selection based on endpoint
+
+**Complete Endpoints Layer** (Depends on OAuth 2.0):
+- All remaining tweet operations (likes, retweets, etc.)
+- User management operations (follows, blocks, mutes)
+- Lists full implementation
+- Spaces implementation
+- Direct Messages implementation
+- Compliance endpoints
+
+**Streaming Foundation Layer** (Depends on Complete Endpoints):
+- Stream connection establishment
+- Stream message parsing
+- Heartbeat monitoring
+- Filtered stream basic implementation
+- Stream rules API integration
+
+**Streaming Reliability Layer** (Depends on Streaming Foundation):
+- Automatic reconnection with backoff
+- Backfill request on reconnection
+- Duplicate message detection
+- Recovery streams for extended outages
+- Stream health monitoring
+
+**Bot Features Layer** (Depends on Streaming Reliability):
+- MentionMonitor implementation
+- ConversationTracker implementation
+- TweetScheduler with cron support
+- Rate-limited response system
+- State management patterns
+
+**Production Features Layer** (Depends on Bot Features):
+- Comprehensive logging with tracing
+- Metrics instrumentation
+- Circuit breaker implementation
+- Caching layer
+- Health checks
+- Graceful shutdown
+
+**Documentation Layer** (Depends on Production Features):
+- API documentation with examples
+- Bot development guides
+- Error handling documentation
+- Performance tuning guides
+- Migration guides
+
+# Risks and Mitigations
+
+**Risk: Twitter API Changes**
+- **Impact**: Breaking changes to API endpoints, response formats, or authentication
+- **Likelihood**: Medium - X has deprecated APIs before
+- **Mitigation**: 
+  - Implement versioning in client (support multiple API versions)
+  - Use feature flags for experimental endpoints
+  - Comprehensive integration tests that catch breaking changes
+  - Subscribe to X API announcements and changelog
+  - Design abstractions that isolate API changes to specific modules
+  - Maintain backward compatibility through trait evolution
+
+**Risk: Rate Limit Handling Complexity**
+- **Impact**: Bots hitting rate limits unexpectedly, degraded user experience
+- **Likelihood**: High - Rate limits vary by plan and endpoint
+- **Mitigation**:
+  - Conservative rate limit tracking with safety margins (e.g., treat 90% as full)
+  - Implement request queuing with prioritization
+  - Provide clear rate limit callbacks for user handling
+  - Document rate limits per endpoint comprehensively
+  - Add rate limit simulation in tests
+  - Provide rate limit dashboard/monitoring helpers
+  - Allow custom rate limit strategies per application
+
+**Risk: Streaming Connection Reliability**
+- **Impact**: Missed tweets, data loss, bot downtime during disconnections
+- **Likelihood**: High - Network issues, X server restarts inevitable
+- **Mitigation**:
+  - Automatic reconnection with exponential backoff (already in design)
+  - Backfill support for short disconnections (5 minutes)
+  - Recovery streams for longer outages (24 hours)
+  - Redundant connections for high-availability scenarios
+  - Comprehensive reconnection event logging
+  - Health check monitoring for stream status
+  - Persistent queue for critical messages during downtime
+  - Duplicate detection to handle overlapping recovery
+
+**Risk: Authentication Token Management**
+- **Impact**: Token expiration causing failed requests, security vulnerabilities
+- **Likelihood**: Medium - OAuth tokens expire, refresh needed
+- **Mitigation**:
+  - Automatic token refresh for OAuth 2.0 PKCE
+  - Token expiration monitoring and preemptive refresh
+  - Secure token storage recommendations in docs
+  - Clear error messages for authentication failures
+  - Integration with secure credential stores (OS keychain, vault)
+  - Token rotation testing in integration tests
+  - Comprehensive auth troubleshooting guide
+
+**Risk: Type Safety vs API Flexibility Trade-off**
+- **Impact**: Rigid types preventing access to new fields, breaking changes on minor updates
+- **Likelihood**: Medium - X adds new fields regularly
+- **Mitigation**:
+  - Use `#[serde(default)]` and `Option<T>` for all non-required fields
+  - Flatten unknown fields into `additional_fields: HashMap<String, Value>`
+  - Provide escape hatches to raw JSON when needed
+  - Version field enums with `#[non_exhaustive]`
+  - Generate some models from OpenAPI spec if available
+  - Comprehensive serde testing with real API responses
+  - Feature flags for experimental field support
+
+**Risk: Memory Usage in High-Volume Streaming**
+- **Impact**: Memory leaks, OOM crashes in long-running bots
+- **Likelihood**: Medium - Streaming can deliver thousands of tweets per second
+- **Mitigation**:
+  - Use bounded channels for stream buffering
+  - Implement backpressure when consumer is slow
+  - LRU caches for duplicate detection with size limits
+  - Memory profiling during development
+  - Clear documentation on memory management patterns
+  - Provide streaming rate limiting (sample: operator)
+  - Monitoring hooks for memory usage tracking
+  - Graceful degradation when memory pressure high
+
+**Risk: Dependency Version Conflicts**
+- **Impact**: Compilation failures, runtime incompatibilities in user projects
+- **Likelihood**: Medium - Tokio, reqwest have major version updates
+- **Mitigation**:
+  - Use conservative dependency version ranges (^1.0 not >=1.0)
+  - Keep dependencies minimal and well-justified
+  - Regular dependency updates with changelog review
+  - CI testing against multiple dependency versions
+  - Document minimum supported Rust version (MSRV)
+  - Use cargo deny to prevent problematic dependencies
+  - Feature-gate optional dependencies
+
+**Risk: Incomplete Error Context**
+- **Impact**: Users unable to diagnose issues, poor debugging experience
+- **Likelihood**: Medium - API errors can be cryptic
+- **Mitigation**:
+  - Parse all X API error details into structured ApiErrorDetail
+  - Include full request context in errors (endpoint, parameters)
+  - Provide error recovery suggestions in error messages
+  - Comprehensive error documentation with examples
+  - Integration with tracing for detailed error traces
+  - Error classification for programmatic handling
+  - Error reporting utilities for users to submit issues
+
+**Risk: Testing Complexity**
+- **Impact**: Bugs in production, difficult to reproduce issues
+- **Likelihood**: High - Async, streaming, rate limiting complex to test
+- **Mitigation**:
+  - Mock HTTP client trait for unit testing
+  - Integration tests with wiremock for API responses
+  - Streaming tests with mock server sending heartbeats
+  - Rate limit simulation in test environment
+  - Property-based testing with proptest for data models
+  - Chaos engineering tests (random disconnections)
+  - Real API integration tests in CI (with rate limiting)
+  - Test utilities exposed for users to test their bots
+
+**Risk: Platform-Specific Issues**
+- **Impact**: Library works on Linux but fails on Windows/macOS
+- **Likelihood**: Low - Tokio abstracts platform differences
+- **Mitigation**:
+  - CI testing on Linux, Windows, macOS
+  - Avoid platform-specific dependencies where possible
+  - Document platform-specific requirements clearly
+  - Test TLS/certificate handling on all platforms
+  - Path handling using std::path abstractions
+  - Time zone handling with chrono carefully
+
+# Appendix
+
+## Field Selection Reference
+
+**tweet.fields** options: `attachments`, `author_id`, `context_annotations`, `conversation_id`, `created_at`, `edit_controls`, `edit_history_tweet_ids`, `entities`, `geo`, `id`, `in_reply_to_user_id`, `lang`, `non_public_metrics`, `organic_metrics`, `possibly_sensitive`, `promoted_metrics`, `public_metrics`, `referenced_tweets`, `reply_settings`, `source`, `text`, `withheld`
+
+**user.fields** options: `created_at`, `description`, `entities`, `id`, `location`, `name`, `pinned_tweet_id`, `profile_image_url`, `protected`, `public_metrics`, `url`, `username`, `verified`, `verified_type`, `withheld`
+
+**media.fields** options: `media_key`, `type`, `url`, `duration_ms`, `height`, `width`, `preview_image_url`, `public_metrics`, `non_public_metrics`, `organic_metrics`, `promoted_metrics`, `alt_text`, `variants`
+
+**poll.fields** options: `id`, `options`, `duration_minutes`, `end_datetime`, `voting_status`
+
+**place.fields** options: `id`, `full_name`, `name`, `country`, `country_code`, `place_type`, `geo`, `contained_within`
+
+**list.fields** options: `id`, `name`, `created_at`, `description`, `follower_count`, `member_count`, `owner_id`, `private`
+
+**space.fields** options: `id`, `state`, `created_at`, `creator_id`, `ended_at`, `host_ids`, `invited_user_ids`, `is_ticketed`, `lang`, `participant_count`, `scheduled_start`, `speaker_ids`, `started_at`, `subscriber_count`, `title`, `topic_ids`, `updated_at`
+
+**dm_event.fields** options: `id`, `event_type`, `text`, `dm_conversation_id`, `created_at`, `sender_id`, `attachments`, `participant_ids`, `referenced_tweets`
+
+## Expansion Options Reference
+
+**Tweet payload expansions**: `author_id`, `referenced_tweets.id`, `referenced_tweets.id.author_id`, `edit_history_tweet_ids`, `in_reply_to_user_id`, `attachments.media_keys`, `attachments.poll_ids`, `geo.place_id`, `entities.mentions.username`
+
+**User payload expansions**: `pinned_tweet_id`
+
+**Space payload expansions**: `invited_user_ids`, `speaker_ids`, `creator_id`, `host_ids`, `topic_ids`
+
+**List payload expansions**: `owner_id`
+
+**DM event expansions**: `sender_id`, `participant_ids`, `referenced_tweets.id`, `attachments.media_keys`
+
+## Rate Limit Examples by Tier
+
+**Free Tier** (App-level):
+- POST /2/tweets: 17 requests per 24 hours
+- GET /2/tweets: 1 request per 15 minutes
+- GET /2/tweets/search/recent: Not available
+
+**Basic Tier**:
+- POST /2/tweets: 100 requests per 24 hours
+- GET /2/tweets: 15 requests per 15 minutes
+- GET /2/tweets/search/recent: 60 requests per 15 minutes
+- Monthly Post Cap: 10,000 Posts
+
+**Pro Tier**:
+- POST /2/tweets: 200 requests per 15 minutes
+- GET /2/tweets: 450 requests per 15 minutes
+- GET /2/tweets/search/recent: 450 requests per 15 minutes
+- Filtered stream: 1,000 rules, 1,024 characters each
+- Monthly Post Cap: 500,000 Posts
+
+**Enterprise Tier**:
+- Filtered stream: 25,000+ rules, 2,048 characters each
+- 10% sample stream with partitioning
+- Webhook delivery option
+- 24-hour recovery streams
+- Custom rate limits
+
+## Streaming Rule Operators
+
+**Boolean Logic**: `AND` (space), `OR`, `NOT` (-)
+**Keywords**: `coffee`, `#hashtag`, `@mention`, `from:username`, `to:username`
+**Content Types**: `is:retweet`, `is:reply`, `is:quote`, `is:verified`
+**Media**: `has:links`, `has:media`, `has:images`, `has:videos`, `has:hashtags`, `has:mentions`
+**Language**: `lang:en`, `lang:es`, etc.
+**Geographic**: `place:Seattle`, `place_country:US`
+**Engagement**: `retweets_of:username`, `replies_of_tweet_id:123`
+**Conversation**: `conversation_id:123`
+**Sampling**: `sample:10` (10% sample)
+**Entity Recognition**: `entity:"Google"`, `entity:"Product Name"`
+
+Example complex rule: `(@mybotname OR #mybothashtag) lang:en -is:retweet -is:quote has:media (help OR support)`
+
+## Performance Considerations
+
+**Concurrency**: Default semaphore limit of 100 concurrent requests, configurable per application needs
+
+**Connection Pooling**: Reqwest maintains HTTP/2 connection pool automatically, tune pool size for high-volume applications
+
+**Serialization**: Zero-copy deserialization where possible using Cow<str>, avoid cloning large strings
+
+**Memory**: Use streaming iterators instead of collecting all results for large datasets, bounded channels for stream buffering
+
+**Caching**: Implement user-level caching for frequently accessed users/tweets, respect ETags if X supports them
+
+## Testing Strategy
+
+**Unit Tests**: Mock HttpClient trait, test error handling, retry logic, rate limit tracking, pagination logic independently
+
+**Integration Tests**: Use wiremock to mock X API responses, test full request/response cycles, test error scenarios
+
+**Streaming Tests**: Mock streaming server with heartbeat generation, test reconnection scenarios, test backfill logic
+
+**Property Tests**: Use proptest for data model serialization/deserialization, test invariants hold for all valid inputs
+
+**Real API Tests**: Optional feature-gated tests against real X API (rate limited), verify response parsing matches actual API
+
+**Performance Tests**: Benchmark serialization performance, test memory usage under high-volume streaming, profile async task overhead
+
+## Security Considerations
+
+**Credential Storage**: Never hardcode credentials, support environment variables, integration with OS credential stores
+
+**TLS**: Always use HTTPS, verify certificates, pin certificates for sensitive applications
+
+**Token Exposure**: Never log full tokens, redact sensitive data in error messages, secure token refresh flow
+
+**Input Validation**: Sanitize all user input before API requests, validate rule syntax before submission, prevent injection attacks
+
+**Rate Limit Abuse**: Implement client-side rate limiting to prevent account suspension, warn users of aggressive patterns
+
+## Minimum Supported Rust Version (MSRV)
+
+Target: Rust 1.75+ (for async trait in traits, let-else syntax, GATs)
+
+Rationale: Balance modern features with accessibility, update MSRV conservatively with major versions only
+
+## License and Contributing
+
+License: MIT OR Apache-2.0 (standard Rust dual license)
+
+Contributing: Comprehensive CONTRIBUTING.md with code style (rustfmt), testing requirements, PR process, CoC
+
+</PRD>
