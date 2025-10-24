@@ -110,15 +110,15 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Define XApiError Enum with All Error Variants Using thiserror",
             "description": "Create the XApiError enum in src/error.rs, covering all required error cases and leveraging the thiserror crate for ergonomic error definitions.",
             "dependencies": [],
-            "details": "Enumerate all error variants as specified in the PRD (network, rate limit, authentication, serialization, streaming, etc.). Use #[derive(Error, Debug)] and annotate each variant with #[error(...)] for clear error messages. Implement From conversions for reqwest::Error and serde_json::Error using #[from] where possible, and provide custom implementations if needed. Ensure each variant carries sufficient context for debugging and user feedback.",
-            "status": "pending",
+            "details": "Enumerate all error variants as specified in the PRD (network, rate limit, authentication, serialization, streaming, etc.). Use #[derive(Error, Debug)] and annotate each variant with #[error(...)] for clear error messages. Implement From conversions for reqwest::Error and serde_json::Error using #[from] where possible, and provide custom implementations if needed. Ensure each variant carries sufficient context for debugging and user feedback.\n<info added on 2025-10-24T10:17:36.153Z>\nXApiError enum implementation completed with 16 error variants including Network, Serialization, Api, Authentication, Authorization, RateLimitExceeded, InvalidRequest, NotFound, StreamConnection, StreamDisconnected, InvalidResponse, OAuth, Io, Timeout, and Config errors. Each variant includes descriptive error messages, proper documentation, context fields for debugging, and appropriate From trait implementations. Comprehensive test suite with 51 tests verifies error construction, message formatting, trait conversions, and error classification methods. All tests are passing, confirming the robustness of the implementation.\n</info added on 2025-10-24T10:17:36.153Z>",
+            "status": "done",
             "testStrategy": "Unit tests to verify that each error variant is constructed correctly, error messages are as expected, and From conversions work for reqwest::Error and serde_json::Error."
           },
           {
@@ -128,8 +128,8 @@
             "dependencies": [
               1
             ],
-            "details": "Define ApiErrorDetail with fields for error context (e.g., HTTP status, error code, message, optional retry-after). Integrate this struct into relevant XApiError variants as needed. Ensure that error details can be easily extracted and displayed for debugging and logging. Document the struct and its usage within the error handling hierarchy.",
-            "status": "pending",
+            "details": "Define ApiErrorDetail with fields for error context (e.g., HTTP status, error code, message, optional retry-after). Integrate this struct into relevant XApiError variants as needed. Ensure that error details can be easily extracted and displayed for debugging and logging. Document the struct and its usage within the error handling hierarchy.\n<info added on 2025-10-24T10:18:07.979Z>\nApiErrorDetail struct implemented with complete builder pattern:\n\nStruct fields:\n- code: String (CAPS_CASE error code)\n- message: String (human-readable message)\n- parameter: Option<String> (problematic parameter)\n- value: Option<String> (problematic value)\n- type_uri: Option<String> (problem type URI)\n- status: Option<u16> (HTTP status code)\n\nImplementation features:\n- #[derive(Error, Debug, Clone)] for full error trait support\n- #[error(\"{message} (code: {code})\")] for display formatting\n- Integrated into Error::Api variant with #[from] conversion\n- Builder pattern methods: new(), with_status(), with_parameter(), with_value(), with_type_uri()\n\nTests included in subtask 3.1:\n✅ test_api_error_detail_builder - Validates builder pattern\n✅ test_api_error_detail_display - Validates display formatting\n✅ test_error_api_5xx_is_retryable - Integration with Error enum\n✅ test_error_api_4xx_not_retryable - Client error classification\n\nApiErrorDetail fully integrated with Error enum and ready for use in API response parsing.\n</info added on 2025-10-24T10:18:07.979Z>",
+            "status": "done",
             "testStrategy": "Unit tests to construct ApiErrorDetail with various field combinations and verify correct integration with XApiError variants."
           },
           {
@@ -140,8 +140,8 @@
               1,
               2
             ],
-            "details": "Implement is_retryable and retry_after methods on XApiError, using error variant and ApiErrorDetail context to determine retryability and extract retry-after information. Ensure logic covers all error types, including network and rate limit errors. Provide documentation and examples for usage in client code.",
-            "status": "pending",
+            "details": "Implement is_retryable and retry_after methods on XApiError, using error variant and ApiErrorDetail context to determine retryability and extract retry-after information. Ensure logic covers all error types, including network and rate limit errors. Provide documentation and examples for usage in client code.\n<info added on 2025-10-24T10:18:17.728Z>\nImplemented comprehensive error handling methods on Error enum:\n\nMethods implemented:\n\n1. **is_retryable() -> bool**\n   - Returns true for: Network, RateLimitExceeded, StreamDisconnected, Timeout, InvalidResponse, Api(5xx)\n   - Returns false for: Authentication, Authorization, InvalidRequest, NotFound, OAuth, Config, Serialization, StreamConnection, Io\n   - Logic considers HTTP status codes for API errors\n\n2. **retry_after() -> Option<Duration>**\n   - Returns Some(Duration) for RateLimitExceeded (calculates time until reset_at)\n   - Returns None for other errors (use exponential backoff)\n   - Handles edge case where reset_at is in the past (returns Duration::ZERO)\n\n3. **is_rate_limit() -> bool**\n   - Checks if error is RateLimitExceeded variant\n\n4. **is_auth_error() -> bool**\n   - Checks for Authentication, Authorization, or OAuth errors\n\n5. **is_client_error() -> bool**\n   - Checks for 4xx status codes in Api errors\n   - Includes InvalidRequest and NotFound\n\n6. **is_server_error() -> bool**\n   - Checks for 5xx status codes in Api errors\n\nAll methods include:\n- Comprehensive rustdoc documentation\n- Clear usage examples\n- Proper error classification logic per PRD\n\nTests covering all methods (13 tests total):\n✅ Retry classification (retryable vs non-retryable)\n✅ Retry timing extraction (retry_after)\n✅ Rate limit detection\n✅ Auth error detection\n✅ Client/server error classification\n✅ Error display formatting\n\nIntegration verified:\n- Methods work correctly with ApiErrorDetail\n- HTTP status code classification accurate\n- Retry timing calculation correct\n</info added on 2025-10-24T10:18:17.728Z>",
+            "status": "done",
             "testStrategy": "Unit tests for is_retryable and retry_after, simulating different error scenarios and verifying correct classification and timing extraction."
           }
         ]
@@ -1020,7 +1020,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-24T09:42:46.250Z",
+      "updated": "2025-10-24T10:18:26.159Z",
       "description": "Tasks for master context"
     }
   }
