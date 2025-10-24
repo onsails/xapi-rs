@@ -243,6 +243,13 @@ impl Error {
     }
 }
 
+// Custom From implementation for cleaner error construction
+impl From<ApiErrorDetail> for Error {
+    fn from(detail: ApiErrorDetail) -> Self {
+        Error::Api(Box::new(detail))
+    }
+}
+
 impl ApiErrorDetail {
     /// Create a new API error detail
     pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
@@ -356,7 +363,7 @@ mod tests {
     #[test]
     fn test_error_api_5xx_is_retryable() {
         let detail = ApiErrorDetail::new("INTERNAL_ERROR", "Server error").with_status(500);
-        let err = Error::Api(Box::new(detail));
+        let err: Error = detail.into();
 
         assert!(err.is_retryable());
         assert!(err.is_server_error());
@@ -366,7 +373,7 @@ mod tests {
     #[test]
     fn test_error_api_4xx_not_retryable() {
         let detail = ApiErrorDetail::new("BAD_REQUEST", "Invalid parameter").with_status(400);
-        let err = Error::Api(Box::new(detail));
+        let err: Error = detail.into();
 
         assert!(!err.is_retryable());
         assert!(err.is_client_error());

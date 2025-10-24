@@ -3,8 +3,6 @@
 //! Provides the primary interface for interacting with the X API v2
 
 use crate::error::Result;
-use std::sync::Arc;
-
 use std::future::Future;
 
 /// HTTP client trait abstraction for testability and flexibility
@@ -31,11 +29,11 @@ pub trait HttpClient: Send + Sync {
 
 /// Default HTTP client implementation using reqwest
 ///
-/// This wraps `reqwest::Client` in an Arc for efficient cloning and sharing
-/// across threads and async tasks.
+/// Note: `reqwest::Client` is already wrapped in Arc internally and is Clone-able,
+/// so we use it directly without additional Arc wrapping.
 #[derive(Clone)]
 pub struct ReqwestClient {
-    client: Arc<reqwest::Client>,
+    client: reqwest::Client,
 }
 
 impl ReqwestClient {
@@ -45,16 +43,19 @@ impl ReqwestClient {
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
 
-        Ok(Self {
-            client: Arc::new(client),
-        })
+        Ok(Self { client })
     }
 
     /// Create a new ReqwestClient with custom reqwest::Client
     pub fn with_client(client: reqwest::Client) -> Self {
-        Self {
-            client: Arc::new(client),
-        }
+        Self { client }
+    }
+
+    /// Create a new ReqwestClient with custom timeout
+    pub fn with_timeout(timeout: std::time::Duration) -> Result<Self> {
+        let client = reqwest::Client::builder().timeout(timeout).build()?;
+
+        Ok(Self { client })
     }
 
     /// Get a reference to the underlying reqwest::Client
@@ -63,11 +64,8 @@ impl ReqwestClient {
     }
 }
 
-impl Default for ReqwestClient {
-    fn default() -> Self {
-        Self::new().expect("Failed to create default ReqwestClient")
-    }
-}
+// Note: No Default implementation to avoid potential panics in library code.
+// Use ReqwestClient::new() instead, which returns Result for proper error handling.
 
 impl HttpClient for ReqwestClient {
     async fn execute(&self, request: reqwest::Request) -> Result<reqwest::Response> {
@@ -77,7 +75,8 @@ impl HttpClient for ReqwestClient {
 }
 
 /// The main client for interacting with the X API v2
-pub struct Client<H: HttpClient = ReqwestClient> {
+#[derive(Clone)]
+pub struct Client<H: HttpClient + Clone = ReqwestClient> {
     #[allow(dead_code)] // Will be used in endpoint implementations
     http: H,
 }
@@ -91,7 +90,7 @@ impl Client<ReqwestClient> {
     }
 }
 
-impl<H: HttpClient> Client<H> {
+impl<H: HttpClient + Clone> Client<H> {
     /// Create a new Client with a custom HTTP client
     pub fn with_http_client(http: H) -> Self {
         Self { http }
@@ -104,49 +103,24 @@ impl<H: HttpClient> Client<H> {
     }
 }
 
-impl Default for Client<ReqwestClient> {
-    fn default() -> Self {
-        Self::new().expect("Failed to create default Client")
-    }
-}
+// Note: No Default implementation to avoid potential panics in library code.
+// Use Client::new() instead, which returns Result for proper error handling.
 
 #[cfg(test)]
 mod tests {
+    //! # Testing with HttpClient
+    //!
+    //! For testing code that uses `HttpClient`, we recommend using the `wiremock` or `mockito`
+    //! crates to create HTTP mock servers. These provide proper HTTP response mocking with
+    //! full control over status codes, headers, and body content.
+    //!
+    //! Example with wiremock (add to dev-dependencies):
+    //! ```toml
+    //! [dev-dependencies]
+    //! wiremock = "0.6"
+    //! ```
+
     use super::*;
-
-    /// Mock HTTP client for testing
-    ///
-    /// This is a simple mock that can be configured to return errors for testing.
-    /// For more complex testing, use wiremock or similar libraries.
-    pub struct MockHttpClient {
-        should_fail: bool,
-    }
-
-    impl MockHttpClient {
-        /// Create a new mock client that succeeds
-        pub fn new() -> Self {
-            Self { should_fail: false }
-        }
-
-        /// Create a mock client that always fails
-        pub fn with_failure() -> Self {
-            Self { should_fail: true }
-        }
-    }
-
-    impl HttpClient for MockHttpClient {
-        async fn execute(&self, _request: reqwest::Request) -> Result<reqwest::Response> {
-            if self.should_fail {
-                Err(crate::error::Error::Config("Mock failure".to_string()))
-            } else {
-                // Return a simple success response
-                // In real tests, use wiremock for proper response mocking
-                Err(crate::error::Error::Config(
-                    "Use wiremock for proper response mocking".to_string(),
-                ))
-            }
-        }
-    }
 
     #[tokio::test]
     async fn test_reqwest_client_creation() {
@@ -155,38 +129,51 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_reqwest_client_default() {
-        let _client = ReqwestClient::default();
-        // Should not panic
-    }
-
-    #[tokio::test]
     async fn test_client_creation() {
         let client = Client::new();
         assert!(client.is_ok());
     }
 
-    #[tokio::test]
-    async fn test_client_with_custom_http() {
-        let mock = MockHttpClient::new();
-        let _client = Client::with_http_client(mock);
+    #[test]
+    fn test_reqwest_client_with_client() {
+        let reqwest_client = reqwest::Client::new();
+        let _client = ReqwestClient::with_client(reqwest_client);
         // Should compile and create successfully
     }
 
     #[tokio::test]
-    async fn test_http_client_trait_send_sync() {
+    async fn test_reqwest_client_with_timeout() {
+        let client = ReqwestClient::with_timeout(std::time::Duration::from_secs(60));
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_reqwest_client_inner() {
+        let client = ReqwestClient::new().unwrap();
+        let _inner = client.inner();
+        // Verify we can access the inner client
+    }
+
+    #[test]
+    fn test_reqwest_client_clone() {
+        let client = ReqwestClient::new().unwrap();
+        let cloned = client.clone();
+        // Both should work independently (Clone is cheap for reqwest::Client)
+        let _inner1 = client.inner();
+        let _inner2 = cloned.inner();
+    }
+
+    #[test]
+    fn test_client_clone() {
+        let client = Client::new().unwrap();
+        let _cloned = client.clone();
+        // Verify Client is cloneable
+    }
+
+    #[test]
+    fn test_http_client_trait_bounds() {
         // Verify HttpClient is Send + Sync
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<ReqwestClient>();
-        assert_send_sync::<MockHttpClient>();
-    }
-
-    #[tokio::test]
-    async fn test_mock_client_behavior() {
-        let mock = MockHttpClient::with_failure();
-        let client = Client::with_http_client(mock);
-
-        // Mock should be usable with Client
-        let _http = client.http_client();
     }
 }
