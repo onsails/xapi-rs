@@ -12,16 +12,19 @@ pub mod middleware;
 /// Rate limit configuration
 ///
 /// Configures how the client handles rate limiting from the X API.
+///
+/// Fields are private to maintain encapsulation and allow future changes.
+/// Use preset methods (`new()`, `disabled()`) or builder methods to configure.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RateLimitConfig {
     /// Global concurrent request limit (default: None)
-    pub global_limit: Option<u32>,
+    global_limit: Option<u32>,
 
     /// Enable per-endpoint rate limit tracking (default: true)
-    pub per_endpoint_tracking: bool,
+    per_endpoint_tracking: bool,
 
     /// Automatically wait when rate limit is reached (default: true)
-    pub auto_wait: bool,
+    auto_wait: bool,
 }
 
 impl RateLimitConfig {
@@ -36,6 +39,73 @@ impl RateLimitConfig {
             global_limit: None,
             per_endpoint_tracking: false,
             auto_wait: false,
+        }
+    }
+
+    /// Get the global concurrent request limit
+    pub fn global_limit(&self) -> Option<u32> {
+        self.global_limit
+    }
+
+    /// Check if per-endpoint tracking is enabled
+    pub fn per_endpoint_tracking(&self) -> bool {
+        self.per_endpoint_tracking
+    }
+
+    /// Check if auto-wait is enabled
+    pub fn auto_wait(&self) -> bool {
+        self.auto_wait
+    }
+
+    /// Create a custom rate limit configuration with builder pattern
+    pub fn custom() -> RateLimitConfigBuilder {
+        RateLimitConfigBuilder::default()
+    }
+}
+
+/// Builder for creating custom rate limit configurations
+#[derive(Debug)]
+pub struct RateLimitConfigBuilder {
+    global_limit: Option<u32>,
+    per_endpoint_tracking: bool,
+    auto_wait: bool,
+}
+
+impl Default for RateLimitConfigBuilder {
+    fn default() -> Self {
+        Self {
+            global_limit: None,
+            per_endpoint_tracking: true,
+            auto_wait: true,
+        }
+    }
+}
+
+impl RateLimitConfigBuilder {
+    /// Set a global concurrent request limit
+    pub fn global_limit(mut self, limit: u32) -> Self {
+        self.global_limit = Some(limit);
+        self
+    }
+
+    /// Enable or disable per-endpoint tracking
+    pub fn per_endpoint_tracking(mut self, enabled: bool) -> Self {
+        self.per_endpoint_tracking = enabled;
+        self
+    }
+
+    /// Enable or disable auto-wait
+    pub fn auto_wait(mut self, enabled: bool) -> Self {
+        self.auto_wait = enabled;
+        self
+    }
+
+    /// Build the rate limit configuration
+    pub fn build(self) -> RateLimitConfig {
+        RateLimitConfig {
+            global_limit: self.global_limit,
+            per_endpoint_tracking: self.per_endpoint_tracking,
+            auto_wait: self.auto_wait,
         }
     }
 }

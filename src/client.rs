@@ -506,11 +506,11 @@ mod tests {
 
     #[test]
     fn test_client_builder_with_rate_limit() {
-        let rate_config = RateLimitConfig {
-            global_limit: Some(100),
-            per_endpoint_tracking: true,
-            auto_wait: true,
-        };
+        let rate_config = RateLimitConfig::custom()
+            .global_limit(100)
+            .per_endpoint_tracking(true)
+            .auto_wait(true)
+            .build();
 
         let client = Client::builder()
             .oauth1("ck", "cs", "at", "ats")
@@ -519,18 +519,21 @@ mod tests {
 
         assert!(client.is_ok());
         let client = client.unwrap();
-        assert_eq!(client.rate_limit_config().global_limit, Some(100));
+        assert_eq!(client.rate_limit_config().global_limit(), Some(100));
     }
 
     #[test]
     fn test_client_builder_with_retry_policy() {
-        let retry_policy = RetryPolicy {
-            max_retries: 5,
-            initial_interval: std::time::Duration::from_millis(500),
-            max_interval: std::time::Duration::from_secs(30),
-            multiplier: 2.0,
-            jitter: true,
-        };
+        let retry_policy = RetryPolicy::custom()
+            .max_retries(5)
+            .initial_interval(std::time::Duration::from_millis(500))
+            .max_interval(std::time::Duration::from_secs(30))
+            .multiplier(2.0)
+            .jitter(true)
+            .build();
+
+        assert!(retry_policy.is_ok());
+        let retry_policy = retry_policy.unwrap();
 
         let client = Client::builder()
             .oauth1("ck", "cs", "at", "ats")
@@ -539,7 +542,7 @@ mod tests {
 
         assert!(client.is_ok());
         let client = client.unwrap();
-        assert_eq!(client.retry_policy().max_retries, 5);
+        assert_eq!(client.retry_policy().max_retries(), 5);
     }
 
     #[test]
@@ -555,29 +558,55 @@ mod tests {
         assert!(client.is_ok());
         let client = client.unwrap();
         assert_eq!(client.base_url(), "https://api.test.com");
-        assert_eq!(client.retry_policy().max_retries, 5); // aggressive = 5 retries
+        assert_eq!(client.retry_policy().max_retries(), 5); // aggressive = 5 retries
     }
 
     #[test]
     fn test_retry_policy_presets() {
         let default_policy = RetryPolicy::new();
-        assert_eq!(default_policy.max_retries, 3);
+        assert_eq!(default_policy.max_retries(), 3);
 
         let none_policy = RetryPolicy::none();
-        assert_eq!(none_policy.max_retries, 0);
+        assert_eq!(none_policy.max_retries(), 0);
 
         let aggressive_policy = RetryPolicy::aggressive();
-        assert_eq!(aggressive_policy.max_retries, 5);
+        assert_eq!(aggressive_policy.max_retries(), 5);
     }
 
     #[test]
     fn test_rate_limit_config_presets() {
         let default_config = RateLimitConfig::new();
-        assert!(default_config.per_endpoint_tracking);
-        assert!(default_config.auto_wait);
+        assert!(default_config.per_endpoint_tracking());
+        assert!(default_config.auto_wait());
 
         let disabled_config = RateLimitConfig::disabled();
-        assert!(!disabled_config.per_endpoint_tracking);
-        assert!(!disabled_config.auto_wait);
+        assert!(!disabled_config.per_endpoint_tracking());
+        assert!(!disabled_config.auto_wait());
+    }
+
+    #[test]
+    fn test_retry_policy_builder_validation() {
+        // Test that validation works
+        let result = RetryPolicy::custom()
+            .multiplier(-1.0)
+            .build();
+        assert!(result.is_err());
+
+        let result = RetryPolicy::custom()
+            .initial_interval(std::time::Duration::from_secs(100))
+            .max_interval(std::time::Duration::from_secs(10))
+            .build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rate_limit_config_builder() {
+        let config = RateLimitConfig::custom()
+            .global_limit(50)
+            .per_endpoint_tracking(false)
+            .build();
+
+        assert_eq!(config.global_limit(), Some(50));
+        assert!(!config.per_endpoint_tracking());
     }
 }
