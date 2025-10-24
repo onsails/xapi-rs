@@ -99,7 +99,7 @@ pub struct Client<H: HttpClient + Clone = ReqwestClient> {
     /// Retry policy for failed requests
     retry_policy: RetryPolicy,
 
-    /// Base URL for the X API (default: https://api.twitter.com)
+    /// Base URL for the X API (default: <https://api.twitter.com>)
     base_url: String,
 }
 
@@ -257,7 +257,7 @@ impl<H: HttpClient + Clone> ClientBuilder<H> {
 
     /// Set the base URL for the X API
     ///
-    /// Default: "https://api.twitter.com"
+    /// Default: `"https://api.twitter.com"`
     pub fn base_url(mut self, url: impl Into<String>) -> Self {
         self.base_url = Some(url.into());
         self

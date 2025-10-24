@@ -12,7 +12,15 @@
 //! ## Quick Start
 //!
 //! ```rust,no_run
-//! // Example usage will be added as implementation progresses
+//! use x_api_client::Client;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a client with OAuth 1.0a authentication
+//! let client = Client::builder()
+//!     .oauth1("consumer_key", "consumer_secret", "access_token", "token_secret")
+//!     .build()?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod auth;
