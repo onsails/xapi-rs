@@ -363,7 +363,11 @@ mod tests {
         let metrics: TweetMetrics = serde_json::from_str(json).unwrap();
         assert_eq!(metrics.like_count, Some(100));
         assert_eq!(metrics.additional_fields.len(), 1);
-        assert!(metrics.additional_fields.contains_key("future_engagement_score"));
+        assert!(
+            metrics
+                .additional_fields
+                .contains_key("future_engagement_score")
+        );
     }
 
     #[test]

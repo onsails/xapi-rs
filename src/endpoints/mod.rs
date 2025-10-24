@@ -8,9 +8,9 @@
 //! - Direct Messages (1-to-1 and group conversations)
 //! - Compliance endpoints
 
+pub mod compliance;
+pub mod direct_messages;
+pub mod lists;
+pub mod spaces;
 pub mod tweets;
 pub mod users;
-pub mod spaces;
-pub mod lists;
-pub mod direct_messages;
-pub mod compliance;

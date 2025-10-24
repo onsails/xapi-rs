@@ -8,6 +8,6 @@
 //! - Backfill support for missed data
 
 pub mod filtered;
-pub mod sample;
-pub mod rules;
 pub mod reconnect;
+pub mod rules;
+pub mod sample;

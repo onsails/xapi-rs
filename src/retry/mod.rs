@@ -5,5 +5,5 @@
 //! - Exponential backoff with jitter
 //! - Request deduplication
 
-pub mod policy;
 pub mod classifier;
+pub mod policy;

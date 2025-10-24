@@ -315,9 +315,11 @@ impl ClientBuilder<ReqwestClient> {
     /// - HTTP client creation fails
     /// - Both timeout and custom HTTP client are configured (conflicting options)
     pub fn build(self) -> Result<Client<ReqwestClient>> {
-        let auth = self
-            .auth
-            .ok_or_else(|| crate::error::Error::Config("No authentication provider configured. Use .oauth1() or .auth()".to_string()))?;
+        let auth = self.auth.ok_or_else(|| {
+            crate::error::Error::Config(
+                "No authentication provider configured. Use .oauth1() or .auth()".to_string(),
+            )
+        })?;
 
         // Check for conflicting configuration
         if self.http.is_some() && self.timeout.is_some() {
@@ -339,7 +341,9 @@ impl ClientBuilder<ReqwestClient> {
             auth,
             rate_limit_config: self.rate_limit_config.unwrap_or_default(),
             retry_policy: self.retry_policy.unwrap_or_default(),
-            base_url: self.base_url.unwrap_or_else(|| "https://api.twitter.com".to_string()),
+            base_url: self
+                .base_url
+                .unwrap_or_else(|| "https://api.twitter.com".to_string()),
         })
     }
 }
@@ -417,9 +421,7 @@ mod tests {
 
     #[test]
     fn test_client_builder_oauth1() {
-        let client = Client::builder()
-            .oauth1("ck", "cs", "at", "ats")
-            .build();
+        let client = Client::builder().oauth1("ck", "cs", "at", "ats").build();
 
         assert!(client.is_ok());
         let client = client.unwrap();
@@ -471,7 +473,7 @@ mod tests {
     #[test]
     fn test_client_accessors() {
         let client = Client::new("ck", "cs", "at", "ats").unwrap();
-        
+
         // Verify we can access internal components
         let _http = client.http_client();
         let _auth = client.auth_provider();
@@ -480,10 +482,10 @@ mod tests {
 
     #[test]
     fn test_client_builder_with_custom_auth() {
-        let auth = Arc::new(crate::auth::oauth1::OAuth1Provider::new("ck", "cs", "at", "ats"));
-        let client = Client::builder()
-            .auth(auth)
-            .build();
+        let auth = Arc::new(crate::auth::oauth1::OAuth1Provider::new(
+            "ck", "cs", "at", "ats",
+        ));
+        let client = Client::builder().auth(auth).build();
         assert!(client.is_ok());
     }
 
@@ -510,7 +512,8 @@ mod tests {
             .global_limit(100)
             .per_endpoint_tracking(true)
             .auto_wait(true)
-            .build();
+            .build()
+            .unwrap();
 
         let client = Client::builder()
             .oauth1("ck", "cs", "at", "ats")
@@ -587,9 +590,7 @@ mod tests {
     #[test]
     fn test_retry_policy_builder_validation() {
         // Test that validation works
-        let result = RetryPolicy::custom()
-            .multiplier(-1.0)
-            .build();
+        let result = RetryPolicy::custom().multiplier(-1.0).build();
         assert!(result.is_err());
 
         let result = RetryPolicy::custom()
@@ -606,7 +607,27 @@ mod tests {
             .per_endpoint_tracking(false)
             .build();
 
+        assert!(config.is_ok());
+        let config = config.unwrap();
         assert_eq!(config.global_limit(), Some(50));
         assert!(!config.per_endpoint_tracking());
+    }
+
+    #[test]
+    fn test_rate_limit_config_builder_validation() {
+        // Test that zero global_limit is rejected
+        let result = RateLimitConfig::custom().global_limit(0).build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_retry_policy_builder_nan_validation() {
+        // Test that NaN is rejected
+        let result = RetryPolicy::custom().multiplier(f64::NAN).build();
+        assert!(result.is_err());
+
+        // Test that Infinity is rejected
+        let result = RetryPolicy::custom().multiplier(f64::INFINITY).build();
+        assert!(result.is_err());
     }
 }

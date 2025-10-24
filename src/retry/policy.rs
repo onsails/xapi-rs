@@ -151,12 +151,12 @@ impl RetryPolicyBuilder {
     /// # Errors
     ///
     /// Returns an error if:
-    /// - multiplier is <= 0
+    /// - multiplier is <= 0, NaN, or Infinity
     /// - initial_interval > max_interval
     pub fn build(self) -> crate::error::Result<RetryPolicy> {
-        if self.multiplier <= 0.0 {
+        if self.multiplier <= 0.0 || !self.multiplier.is_finite() {
             return Err(crate::error::Error::Config(
-                "Retry multiplier must be positive".to_string(),
+                "Retry multiplier must be positive and finite".to_string(),
             ));
         }
 

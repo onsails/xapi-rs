@@ -5,9 +5,9 @@
 //! - Automatic request pacing
 //! - Proactive tracking using x-rate-limit-* headers
 
-pub mod tracker;
-pub mod queue;
 pub mod middleware;
+pub mod queue;
+pub mod tracker;
 
 /// Rate limit configuration
 ///
@@ -101,12 +101,26 @@ impl RateLimitConfigBuilder {
     }
 
     /// Build the rate limit configuration
-    pub fn build(self) -> RateLimitConfig {
-        RateLimitConfig {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - global_limit is Some(0) (must be at least 1)
+    pub fn build(self) -> crate::error::Result<RateLimitConfig> {
+        // Validate global_limit if set
+        if let Some(limit) = self.global_limit {
+            if limit == 0 {
+                return Err(crate::error::Error::Config(
+                    "Global limit must be at least 1".to_string(),
+                ));
+            }
+        }
+
+        Ok(RateLimitConfig {
             global_limit: self.global_limit,
             per_endpoint_tracking: self.per_endpoint_tracking,
             auto_wait: self.auto_wait,
-        }
+        })
     }
 }
 

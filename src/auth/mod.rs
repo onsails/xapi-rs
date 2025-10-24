@@ -9,8 +9,8 @@
 //! methods, enabling flexible authentication strategies via dependency injection
 //! and trait objects.
 
-use async_trait::async_trait;
 use crate::error::Result;
+use async_trait::async_trait;
 
 /// Authentication provider trait for X API v2
 ///
@@ -100,9 +100,9 @@ pub trait AuthProvider: Send + Sync {
     fn supports_endpoint(&self, endpoint: &str) -> bool;
 }
 
+pub mod bearer;
 pub mod oauth1;
 pub mod oauth2;
-pub mod bearer;
 
 #[cfg(test)]
 mod tests {
@@ -133,7 +133,9 @@ mod tests {
         }
 
         fn supports_endpoint(&self, endpoint: &str) -> bool {
-            self.supported_endpoints.iter().any(|e| endpoint.starts_with(e))
+            self.supported_endpoints
+                .iter()
+                .any(|e| endpoint.starts_with(e))
         }
     }
 
@@ -166,9 +168,16 @@ mod tests {
         let authenticated_req = provider.authenticate(req).await.unwrap();
 
         // Verify the Authorization header was added
-        assert!(authenticated_req.headers().contains_key(reqwest::header::AUTHORIZATION));
+        assert!(
+            authenticated_req
+                .headers()
+                .contains_key(reqwest::header::AUTHORIZATION)
+        );
         assert_eq!(
-            authenticated_req.headers().get(reqwest::header::AUTHORIZATION).unwrap(),
+            authenticated_req
+                .headers()
+                .get(reqwest::header::AUTHORIZATION)
+                .unwrap(),
             "Bearer mock_token"
         );
     }
@@ -187,17 +196,17 @@ mod tests {
 
         let result = provider.authenticate(req).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::error::Error::Authentication(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::Error::Authentication(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_auth_provider_supports_endpoint() {
         let provider = MockAuthProvider {
             should_fail: false,
-            supported_endpoints: vec![
-                "/2/tweets".to_string(),
-                "/2/users/".to_string(),
-            ],
+            supported_endpoints: vec!["/2/tweets".to_string(), "/2/users/".to_string()],
         };
 
         // Supported endpoints

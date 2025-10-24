@@ -105,11 +105,11 @@ impl OAuth1Provider {
     fn is_user_context_endpoint(endpoint: &str) -> bool {
         // App-only endpoints that should NOT use OAuth 1.0a (must check first)
         const EXCLUDED_PATTERNS: &[&str] = &[
-            "/2/tweets/search",          // Tweet search endpoints
-            "/2/tweets/sample",          // Sample stream
-            "/2/tweets/count",           // Tweet counts
-            "/2/compliance/jobs",        // Compliance
-            "/2/openapi.json",           // OpenAPI spec
+            "/2/tweets/search",   // Tweet search endpoints
+            "/2/tweets/sample",   // Sample stream
+            "/2/tweets/count",    // Tweet counts
+            "/2/compliance/jobs", // Compliance
+            "/2/openapi.json",    // OpenAPI spec
         ];
 
         // Check exclusions first
@@ -130,11 +130,11 @@ impl OAuth1Provider {
 
         // Prefix patterns for user-context endpoints
         const PREFIX_PATTERNS: &[&str] = &[
-            "/2/tweets/",          // Individual tweet operations (DELETE /2/tweets/:id)
-            "/2/users/",           // User actions (likes, follows, blocks, mutes)
+            "/2/tweets/",           // Individual tweet operations (DELETE /2/tweets/:id)
+            "/2/users/",            // User actions (likes, follows, blocks, mutes)
             "/2/dm_conversations/", // DM conversation operations
-            "/2/dm_events/",       // DM event operations
-            "/2/lists/",           // List operations
+            "/2/dm_events/",        // DM event operations
+            "/2/lists/",            // List operations
         ];
 
         // Check exact matches
@@ -167,15 +167,9 @@ impl AuthProvider for OAuth1Provider {
         // Generate OAuth 1.0a Authorization header
         // The oauth1-request crate generates the signature and formats the header
         let authorization_header = match *method {
-            reqwest::Method::GET => {
-                oauth::get(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
-            }
-            reqwest::Method::POST => {
-                oauth::post(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
-            }
-            reqwest::Method::PUT => {
-                oauth::put(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
-            }
+            reqwest::Method::GET => oauth::get(url.as_str(), &(), &self.token, oauth::HMAC_SHA1),
+            reqwest::Method::POST => oauth::post(url.as_str(), &(), &self.token, oauth::HMAC_SHA1),
+            reqwest::Method::PUT => oauth::put(url.as_str(), &(), &self.token, oauth::HMAC_SHA1),
             reqwest::Method::DELETE => {
                 oauth::delete(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
             }
@@ -295,7 +289,8 @@ mod tests {
 
     #[test]
     fn test_auth_provider_trait_object() {
-        let provider: Box<dyn AuthProvider> = Box::new(OAuth1Provider::new("ck", "cs", "at", "ats"));
+        let provider: Box<dyn AuthProvider> =
+            Box::new(OAuth1Provider::new("ck", "cs", "at", "ats"));
 
         // Verify trait object works
         assert!(provider.supports_endpoint("/2/tweets"));
@@ -319,9 +314,11 @@ mod tests {
         let authenticated_req = provider.authenticate(req).await.unwrap();
 
         // Verify Authorization header was added
-        assert!(authenticated_req
-            .headers()
-            .contains_key(reqwest::header::AUTHORIZATION));
+        assert!(
+            authenticated_req
+                .headers()
+                .contains_key(reqwest::header::AUTHORIZATION)
+        );
 
         let auth_header = authenticated_req
             .headers()
@@ -356,9 +353,11 @@ mod tests {
         let authenticated_req = provider.authenticate(req).await.unwrap();
 
         // Verify Authorization header exists
-        assert!(authenticated_req
-            .headers()
-            .contains_key(reqwest::header::AUTHORIZATION));
+        assert!(
+            authenticated_req
+                .headers()
+                .contains_key(reqwest::header::AUTHORIZATION)
+        );
 
         let auth_header = authenticated_req
             .headers()
@@ -383,9 +382,11 @@ mod tests {
         let authenticated_req = provider.authenticate(req).await.unwrap();
 
         // Verify Authorization header exists
-        assert!(authenticated_req
-            .headers()
-            .contains_key(reqwest::header::AUTHORIZATION));
+        assert!(
+            authenticated_req
+                .headers()
+                .contains_key(reqwest::header::AUTHORIZATION)
+        );
     }
 
     #[tokio::test]
@@ -400,9 +401,11 @@ mod tests {
         let authenticated_req = provider.authenticate(req).await.unwrap();
 
         // Verify Authorization header exists
-        assert!(authenticated_req
-            .headers()
-            .contains_key(reqwest::header::AUTHORIZATION));
+        assert!(
+            authenticated_req
+                .headers()
+                .contains_key(reqwest::header::AUTHORIZATION)
+        );
     }
 
     #[tokio::test]
