@@ -197,7 +197,7 @@
         "id": 5,
         "title": "Implement OAuth 1.0a Authentication Provider",
         "description": "Develop OAuth1Provider implementing AuthProvider trait, supporting header signing and endpoint compatibility checks.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           4
         ],
@@ -244,7 +244,7 @@
               3
             ],
             "details": "Ensure OAuth1Provider correctly inserts Authorization headers into outgoing requests and checks if endpoints require OAuth 1.0a. Implement endpoint compatibility logic to distinguish between user-authenticated endpoints (posting tweets, likes, retweets, follows, DMs) that require OAuth 1.0a and app-only/public endpoints that use OAuth 2.0 Bearer.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for header presence and correctness; integration tests with endpoints requiring OAuth 1.0a."
           },
           {
@@ -255,7 +255,7 @@
               4
             ],
             "details": "Handle errors such as invalid credentials, signature failures, clock skew issues, and unsupported endpoints. Write unit tests covering error scenarios and edge cases, ensuring graceful failure and clear error messages.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for all error paths; property tests for edge cases."
           },
           {
@@ -265,8 +265,8 @@
             "dependencies": [
               5
             ],
-            "details": "Modify XClient builder to accept OAuth1Provider as an authentication option. Ensure correct initialization, configuration, and lifecycle management within the builder pattern. Support both user-context and app-only authentication flows where appropriate.",
-            "status": "pending",
+            "details": "Modify XClient builder to accept OAuth1Provider as an authentication option. Ensure correct initialization, configuration, and lifecycle management within the builder pattern. Support both user-context and app-only authentication flows where appropriate.\n<info added on 2025-10-24T15:48:33.175Z>\nSuccessfully integrated OAuth1Provider with XClient builder pattern. The implementation in src/client.rs includes enhancements to the Client struct with an Arc<dyn AuthProvider> auth field and base_url field for API endpoint configuration. Updated Client::new() to require OAuth 1.0a credentials and added accessor methods.\n\nCreated a ClientBuilder<H> struct with a fluent API featuring methods for OAuth 1.0a authentication, custom AuthProvider, base URL configuration (default: https://api.twitter.com), timeout settings (default: 30 seconds), and a build() method with validation. Constructor changes include Client::new() for OAuth 1.0a authentication and Client::builder() for advanced configuration.\n\nKey design decisions include using Arc<dyn AuthProvider> for Clone support, requiring authentication validation in the builder, and supporting both simple and advanced configuration patterns. Added 6 passing tests verifying the builder pattern functionality and OAuth1Provider integration. All tests pass with no clippy warnings.\n</info added on 2025-10-24T15:48:33.175Z>",
+            "status": "done",
             "testStrategy": "Integration tests for XClient instantiation and authentication flow using OAuth1Provider."
           }
         ]
@@ -1031,7 +1031,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-24T12:46:14.996Z",
+      "updated": "2025-10-24T15:48:33.762Z",
       "description": "Tasks for master context"
     }
   }
