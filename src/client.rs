@@ -198,12 +198,7 @@ impl Default for ClientBuilder<ReqwestClient> {
     }
 }
 
-impl ClientBuilder<ReqwestClient> {
-    /// Create a new ClientBuilder with default settings
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+impl<H: HttpClient + Clone> ClientBuilder<H> {
     /// Configure OAuth 1.0a authentication
     ///
     /// # Arguments
@@ -242,9 +237,28 @@ impl ClientBuilder<ReqwestClient> {
         self
     }
 
+    /// Set a custom HTTP client
+    ///
+    /// Note: If you set a custom HTTP client, the `timeout()` configuration will be ignored.
+    /// Configure timeout on your custom HTTP client instead.
+    pub fn http_client(mut self, http: H) -> Self {
+        self.http = Some(http);
+        self
+    }
+}
+
+impl ClientBuilder<ReqwestClient> {
+    /// Create a new ClientBuilder with default settings
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Set the HTTP request timeout
     ///
     /// Default: 30 seconds
+    ///
+    /// Note: This method is only available when using the default `ReqwestClient`.
+    /// If you provide a custom HTTP client via `http_client()`, configure timeout on that client instead.
     pub fn timeout(mut self, timeout: std::time::Duration) -> Self {
         self.timeout = Some(timeout);
         self
@@ -257,12 +271,22 @@ impl ClientBuilder<ReqwestClient> {
     /// Returns an error if:
     /// - No authentication provider is configured
     /// - HTTP client creation fails
+    /// - Both timeout and custom HTTP client are configured (conflicting options)
     pub fn build(self) -> Result<Client<ReqwestClient>> {
         let auth = self
             .auth
             .ok_or_else(|| crate::error::Error::Config("No authentication provider configured. Use .oauth1() or .auth()".to_string()))?;
 
-        let http = if let Some(timeout) = self.timeout {
+        // Check for conflicting configuration
+        if self.http.is_some() && self.timeout.is_some() {
+            return Err(crate::error::Error::Config(
+                "Cannot set both custom HTTP client and timeout. Configure timeout on your custom client instead.".to_string()
+            ));
+        }
+
+        let http = if let Some(http) = self.http {
+            http
+        } else if let Some(timeout) = self.timeout {
             ReqwestClient::with_timeout(timeout)?
         } else {
             ReqwestClient::new()?
@@ -273,14 +297,6 @@ impl ClientBuilder<ReqwestClient> {
             auth,
             base_url: self.base_url.unwrap_or_else(|| "https://api.twitter.com".to_string()),
         })
-    }
-}
-
-impl<H: HttpClient + Clone> ClientBuilder<H> {
-    /// Set a custom HTTP client
-    pub fn http_client(mut self, http: H) -> Self {
-        self.http = Some(http);
-        self
     }
 }
 
@@ -416,5 +432,31 @@ mod tests {
         let _http = client.http_client();
         let _auth = client.auth_provider();
         let _base = client.base_url();
+    }
+
+    #[test]
+    fn test_client_builder_with_custom_auth() {
+        let auth = Arc::new(crate::auth::oauth1::OAuth1Provider::new("ck", "cs", "at", "ats"));
+        let client = Client::builder()
+            .auth(auth)
+            .build();
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_client_builder_timeout_and_http_client_conflict() {
+        let http = ReqwestClient::new().unwrap();
+        let result = Client::builder()
+            .oauth1("ck", "cs", "at", "ats")
+            .http_client(http)
+            .timeout(std::time::Duration::from_secs(60))
+            .build();
+
+        assert!(result.is_err());
+        if let Err(crate::error::Error::Config(msg)) = result {
+            assert!(msg.contains("Cannot set both"));
+        } else {
+            panic!("Expected Config error for conflicting options");
+        }
     }
 }
