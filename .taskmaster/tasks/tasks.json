@@ -197,64 +197,75 @@
         "id": 5,
         "title": "Implement OAuth 1.0a Authentication Provider",
         "description": "Develop OAuth1Provider implementing AuthProvider trait, supporting header signing and endpoint compatibility checks.",
-        "details": "In src/auth/oauth1.rs, use oauth1 crate (0.6+) to implement OAuth1Provider. Ensure correct signature generation, header injection, and endpoint support logic. Provide unit tests for signature correctness and error handling. Integrate with XClient builder pattern.",
-        "testStrategy": "Unit tests for signature generation and header injection; integration tests with mock endpoints requiring OAuth 1.0a.",
-        "priority": "high",
+        "status": "in-progress",
         "dependencies": [
           4
         ],
-        "status": "pending",
+        "priority": "high",
+        "details": "In src/auth/oauth1.rs, use oauth1-request crate (0.6+) to implement OAuth1Provider. Ensure correct signature generation, header injection, and endpoint support logic. Provide unit tests for signature correctness and error handling. Integrate with XClient builder pattern.\n<info added on 2025-10-24T11:48:01.370Z>\nBased on the research findings, the following should be added to the OAuth 1.0a Authentication Provider implementation details:\n\nFor the OAuth1Provider implementation, switch from the oauth1 crate to the oauth1-request crate (0.6+) which provides better integration with Twitter's API v2. Implement endpoint compatibility checks to determine which X API endpoints support OAuth 1.0a versus OAuth 2.0. \n\nThe implementation should include:\n1. A mapping of X API v2 endpoints that support OAuth 1.0a authentication\n2. Signature generation using HMAC-SHA1 as required by Twitter\n3. Proper header injection with the Authorization header\n4. Nonce generation and timestamp handling\n5. Parameter encoding according to OAuth 1.0a specifications\n\nUse the derive macro feature of oauth1-request for request parameter serialization. Implement comprehensive error handling for signature failures, clock skew issues, and endpoint compatibility errors. Unit tests should verify signatures against Twitter's official test vectors to ensure compliance with their implementation.\n\nWhen integrating with the XClient builder pattern, ensure the OAuth1Provider can be configured with consumer key/secret and access token/secret pairs, with support for both user-context and app-only authentication flows where appropriate.\n</info added on 2025-10-24T11:48:01.370Z>\n\n<info added on 2025-10-25T09:15:22.480Z>\nClarification on implementation details:\n\n1. The AuthProvider trait does not yet exist in the codebase and needs to be defined in src/auth/mod.rs before implementing OAuth1Provider.\n\n2. The AuthProvider trait should be implemented using the async-trait crate (not native AFIT) for MSRV 1.85 compatibility with the following signature:\n```rust\n#[async_trait]\npub trait AuthProvider: Send + Sync {\n    async fn authenticate(&self, req: reqwest::Request) -> Result<reqwest::Request, AuthError>;\n    fn supports_endpoint(&self, endpoint: &str) -> bool;\n}\n```\n\n3. The oauth1-request crate (already in Cargo.toml as \"oauth1-request = ~0.6\") should be used for signature generation with key functions:\n   - oauth::Token::from_parts() for credentials\n   - oauth::post(uri, &request, &token, oauth::HMAC_SHA1) for header generation\n   - Use #[derive(oauth::Request)] on request structs\n\n4. Endpoint compatibility: OAuth 1.0a is required for user-authenticated endpoints (posting tweets, likes, retweets, follows, DMs). OAuth 2.0 Bearer is for app-only/public endpoints.\n\n5. The async-trait = \"~0.1\" dependency needs to be added to Cargo.toml.\n</info added on 2025-10-25T09:15:22.480Z>",
+        "testStrategy": "Unit tests for signature generation and header injection; integration tests with mock endpoints requiring OAuth 1.0a. Include tests verifying signatures against Twitter's official test vectors to ensure compliance.",
         "subtasks": [
           {
             "id": 1,
+            "title": "Define AuthProvider Trait in src/auth/mod.rs",
+            "description": "Create the AuthProvider trait in src/auth/mod.rs using async-trait crate to ensure MSRV 1.85 compatibility.",
+            "dependencies": [],
+            "details": "Define the AuthProvider trait in src/auth/mod.rs with the following signature using the async-trait crate:\n```rust\n#[async_trait]\npub trait AuthProvider: Send + Sync {\n    async fn authenticate(&self, req: reqwest::Request) -> Result<reqwest::Request, AuthError>;\n    fn supports_endpoint(&self, endpoint: &str) -> bool;\n}\n```\nEnsure the trait is properly documented and add the async-trait = \"~0.1\" dependency to Cargo.toml. Define the AuthError type to handle authentication-related errors.\n<info added on 2025-10-24T11:55:24.477Z>\nImplementation of the AuthProvider trait has been successfully completed with the following results:\n\n- AuthProvider trait fully implemented with async-trait for MSRV 1.85 compatibility\n- Added async-trait = \"~0.1\" dependency to Cargo.toml\n- Comprehensive documentation with examples and design rationale\n- 6 comprehensive unit tests covering:\n  * Trait object safety (Box<dyn AuthProvider>)\n  * Success path authentication with header injection\n  * Error handling and propagation\n  * Endpoint matching logic\n  * Thread safety (Send + Sync bounds)\n\nTest Results: 65/65 tests passing (including 6 new auth tests)\nClippy: Zero warnings with -D warnings flag\nCompliance: 100% compliant with project Rust standards\n\nThe trait is production-ready and provides the foundation for OAuth1Provider, OAuth2BearerProvider, and OAuth2PKCEProvider implementations.\n</info added on 2025-10-24T11:55:24.477Z>",
+            "status": "done",
+            "testStrategy": "Unit tests verifying trait method signatures and proper documentation."
+          },
+          {
+            "id": 2,
             "title": "Define and Integrate AuthProvider Trait for OAuth1Provider",
             "description": "Create the OAuth1Provider struct and implement the AuthProvider trait, ensuring trait methods are correctly defined and integrated.",
-            "dependencies": [],
+            "dependencies": [
+              1
+            ],
             "details": "In src/auth/oauth1.rs, define OAuth1Provider and implement all required methods from the AuthProvider trait. Ensure trait integration supports future extension and is compatible with the crate's architecture.",
             "status": "pending",
             "testStrategy": "Unit tests verifying trait method signatures and correct trait object usage."
           },
           {
-            "id": 2,
-            "title": "Implement OAuth 1.0a Signature Generation Logic",
-            "description": "Develop logic for generating OAuth 1.0a signatures using the oauth1 crate, ensuring compliance with protocol requirements.",
-            "dependencies": [
-              1
-            ],
-            "details": "Use oauth1 crate (0.6+) to generate request signatures, including correct handling of consumer keys, secrets, tokens, and request parameters. Validate signature generation against known test vectors and RFC examples.",
-            "status": "pending",
-            "testStrategy": "Unit tests comparing generated signatures to RFC-compliant examples and known-good outputs."
-          },
-          {
             "id": 3,
-            "title": "Implement Header Injection and Endpoint Compatibility Checks",
-            "description": "Add logic to inject OAuth headers into requests and verify endpoint compatibility for OAuth 1.0a authentication.",
+            "title": "Implement OAuth 1.0a Signature Generation Logic",
+            "description": "Develop logic for generating OAuth 1.0a signatures using the oauth1-request crate, ensuring compliance with protocol requirements.",
             "dependencies": [
               2
             ],
-            "details": "Ensure OAuth1Provider correctly inserts Authorization headers into outgoing requests and checks if endpoints require OAuth 1.0a. Implement endpoint compatibility logic to avoid signing unsupported endpoints.",
+            "details": "Use oauth1-request crate (0.6+) to generate request signatures, including correct handling of consumer keys, secrets, tokens, and request parameters. Use oauth::Token::from_parts() for credentials and oauth::post(uri, &request, &token, oauth::HMAC_SHA1) for header generation. Use #[derive(oauth::Request)] on request structs. Validate signature generation against known test vectors and Twitter's official examples.",
+            "status": "pending",
+            "testStrategy": "Unit tests comparing generated signatures to RFC-compliant examples and Twitter's official test vectors."
+          },
+          {
+            "id": 4,
+            "title": "Implement Header Injection and Endpoint Compatibility Checks",
+            "description": "Add logic to inject OAuth headers into requests and verify endpoint compatibility for OAuth 1.0a authentication.",
+            "dependencies": [
+              3
+            ],
+            "details": "Ensure OAuth1Provider correctly inserts Authorization headers into outgoing requests and checks if endpoints require OAuth 1.0a. Implement endpoint compatibility logic to distinguish between user-authenticated endpoints (posting tweets, likes, retweets, follows, DMs) that require OAuth 1.0a and app-only/public endpoints that use OAuth 2.0 Bearer.",
             "status": "pending",
             "testStrategy": "Unit tests for header presence and correctness; integration tests with endpoints requiring OAuth 1.0a."
           },
           {
-            "id": 4,
+            "id": 5,
             "title": "Develop Error Handling and Unit Tests for OAuth1Provider",
             "description": "Implement robust error handling for signature generation, header injection, and endpoint checks. Provide comprehensive unit tests.",
             "dependencies": [
-              3
+              4
             ],
-            "details": "Handle errors such as invalid credentials, signature failures, and unsupported endpoints. Write unit tests covering error scenarios and edge cases, ensuring graceful failure and clear error messages.",
+            "details": "Handle errors such as invalid credentials, signature failures, clock skew issues, and unsupported endpoints. Write unit tests covering error scenarios and edge cases, ensuring graceful failure and clear error messages.",
             "status": "pending",
             "testStrategy": "Unit tests for all error paths; property tests for edge cases."
           },
           {
-            "id": 5,
+            "id": 6,
             "title": "Integrate OAuth1Provider with XClient Builder Pattern",
             "description": "Integrate OAuth1Provider into the XClient builder, enabling seamless configuration and usage within client instantiation.",
             "dependencies": [
-              4
+              5
             ],
-            "details": "Modify XClient builder to accept OAuth1Provider as an authentication option. Ensure correct initialization, configuration, and lifecycle management within the builder pattern.",
+            "details": "Modify XClient builder to accept OAuth1Provider as an authentication option. Ensure correct initialization, configuration, and lifecycle management within the builder pattern. Support both user-context and app-only authentication flows where appropriate.",
             "status": "pending",
             "testStrategy": "Integration tests for XClient instantiation and authentication flow using OAuth1Provider."
           }
@@ -1020,7 +1031,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-24T11:10:33.137Z",
+      "updated": "2025-10-24T11:55:30.881Z",
       "description": "Tasks for master context"
     }
   }
