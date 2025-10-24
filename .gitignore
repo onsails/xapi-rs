@@ -35,3 +35,8 @@ node_modules/
 # tasks.json
 # tasks/ 
 target
+
+
+# Added by cargo
+
+/target

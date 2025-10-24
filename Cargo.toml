@@ -1,0 +1,47 @@
+[package]
+name = "x-api-client"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["X API Client Contributors"]
+description = "A type-safe, async-first Rust library for the X (Twitter) API v2"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/x-api-client"
+keywords = ["twitter", "x", "api", "async", "bot"]
+categories = ["api-bindings", "asynchronous", "web-programming"]
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "time", "sync"] }
+
+# HTTP client (using rustls for better portability)
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "cookies", "gzip", "rustls-tls", "http2"] }
+
+# Error handling
+thiserror = "2.0"
+
+# Rate limiting
+governor = "0.10"
+
+# Retry logic
+backoff = "0.4"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async streams
+tokio-stream = "0.1"
+async-stream = "0.3"
+
+# Authentication
+oauth1-request = "0.6"
+oauth2 = "5.0"
+
+# Optional dependencies
+tokio-cron-scheduler = { version = "0.15", optional = true }
+
+[features]
+default = []
+scheduling = ["tokio-cron-scheduler"]
+real_api_tests = []

@@ -85,3 +85,6 @@ match operation() {
 - **Magic Numbers**: Use `const` or CLI args, never literals
 - **Async**: Use tokio consistently
 - **Breaking Changes**: OK for internal crates, preserve HTTP/WebSocket compatibility
+
+### 9. Rust Versioning
+- **Cargo edition**: Use 2024 edition
