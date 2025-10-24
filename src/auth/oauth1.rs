@@ -59,7 +59,6 @@ use crate::error::{Error, Result};
 #[derive(Clone)]
 pub struct OAuth1Provider {
     /// OAuth 1.0a credentials token
-    #[allow(dead_code)] // Will be used in subtask 5.3 for signature generation
     token: oauth::Token,
 }
 
@@ -152,8 +151,9 @@ impl OAuth1Provider {
 
 #[async_trait]
 impl AuthProvider for OAuth1Provider {
-    async fn authenticate(&self, req: reqwest::Request) -> Result<reqwest::Request> {
-        // Extract URL from the request
+    async fn authenticate(&self, mut req: reqwest::Request) -> Result<reqwest::Request> {
+        // Extract method and URL from the request
+        let method = req.method();
         let url = req.url();
 
         // Check if this endpoint supports OAuth 1.0a
@@ -164,8 +164,36 @@ impl AuthProvider for OAuth1Provider {
             )));
         }
 
-        // For now, return the request unmodified
-        // Signature generation will be implemented in subtask 5.3
+        // Generate OAuth 1.0a Authorization header
+        // The oauth1-request crate generates the signature and formats the header
+        let authorization_header = match *method {
+            reqwest::Method::GET => {
+                oauth::get(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
+            }
+            reqwest::Method::POST => {
+                oauth::post(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
+            }
+            reqwest::Method::PUT => {
+                oauth::put(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
+            }
+            reqwest::Method::DELETE => {
+                oauth::delete(url.as_str(), &(), &self.token, oauth::HMAC_SHA1)
+            }
+            _ => {
+                return Err(Error::Authentication(format!(
+                    "HTTP method '{}' is not supported for OAuth 1.0a",
+                    method
+                )));
+            }
+        };
+
+        // Inject the Authorization header into the request
+        req.headers_mut().insert(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&authorization_header)
+                .map_err(|e| Error::Authentication(format!("Invalid OAuth header: {}", e)))?,
+        );
+
         Ok(req)
     }
 
@@ -272,5 +300,170 @@ mod tests {
         // Verify trait object works
         assert!(provider.supports_endpoint("/2/tweets"));
         assert!(!provider.supports_endpoint("/2/tweets/search/recent"));
+    }
+
+    #[tokio::test]
+    async fn test_signature_generation_post_request() {
+        let provider = OAuth1Provider::new(
+            "test_consumer_key",
+            "test_consumer_secret",
+            "test_access_token",
+            "test_access_token_secret",
+        );
+
+        let req = reqwest::Request::new(
+            reqwest::Method::POST,
+            "https://api.twitter.com/2/tweets".parse().unwrap(),
+        );
+
+        let authenticated_req = provider.authenticate(req).await.unwrap();
+
+        // Verify Authorization header was added
+        assert!(authenticated_req
+            .headers()
+            .contains_key(reqwest::header::AUTHORIZATION));
+
+        let auth_header = authenticated_req
+            .headers()
+            .get(reqwest::header::AUTHORIZATION)
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        // Verify it starts with OAuth
+        assert!(auth_header.starts_with("OAuth "));
+
+        // Verify it contains required OAuth parameters
+        assert!(auth_header.contains("oauth_consumer_key=\"test_consumer_key\""));
+        assert!(auth_header.contains("oauth_token=\"test_access_token\""));
+        assert!(auth_header.contains("oauth_signature_method=\"HMAC-SHA1\""));
+        // Note: oauth_version is optional and defaults to "1.0" per OAuth 1.0 spec
+        // The oauth1-request library omits it when it's the default value
+        assert!(auth_header.contains("oauth_nonce="));
+        assert!(auth_header.contains("oauth_timestamp="));
+        assert!(auth_header.contains("oauth_signature="));
+    }
+
+    #[tokio::test]
+    async fn test_signature_generation_get_request() {
+        let provider = OAuth1Provider::new("ck", "cs", "at", "ats");
+
+        let req = reqwest::Request::new(
+            reqwest::Method::GET,
+            "https://api.twitter.com/2/users/123/likes".parse().unwrap(),
+        );
+
+        let authenticated_req = provider.authenticate(req).await.unwrap();
+
+        // Verify Authorization header exists
+        assert!(authenticated_req
+            .headers()
+            .contains_key(reqwest::header::AUTHORIZATION));
+
+        let auth_header = authenticated_req
+            .headers()
+            .get(reqwest::header::AUTHORIZATION)
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        assert!(auth_header.starts_with("OAuth "));
+        assert!(auth_header.contains("oauth_signature="));
+    }
+
+    #[tokio::test]
+    async fn test_signature_generation_delete_request() {
+        let provider = OAuth1Provider::new("ck", "cs", "at", "ats");
+
+        let req = reqwest::Request::new(
+            reqwest::Method::DELETE,
+            "https://api.twitter.com/2/tweets/123".parse().unwrap(),
+        );
+
+        let authenticated_req = provider.authenticate(req).await.unwrap();
+
+        // Verify Authorization header exists
+        assert!(authenticated_req
+            .headers()
+            .contains_key(reqwest::header::AUTHORIZATION));
+    }
+
+    #[tokio::test]
+    async fn test_signature_generation_put_request() {
+        let provider = OAuth1Provider::new("ck", "cs", "at", "ats");
+
+        let req = reqwest::Request::new(
+            reqwest::Method::PUT,
+            "https://api.twitter.com/2/lists/123".parse().unwrap(),
+        );
+
+        let authenticated_req = provider.authenticate(req).await.unwrap();
+
+        // Verify Authorization header exists
+        assert!(authenticated_req
+            .headers()
+            .contains_key(reqwest::header::AUTHORIZATION));
+    }
+
+    #[tokio::test]
+    async fn test_unsupported_http_method() {
+        let provider = OAuth1Provider::new("ck", "cs", "at", "ats");
+
+        let req = reqwest::Request::new(
+            reqwest::Method::PATCH,
+            "https://api.twitter.com/2/tweets".parse().unwrap(),
+        );
+
+        let result = provider.authenticate(req).await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, Error::Authentication(_)));
+
+        // Verify error message mentions unsupported method
+        if let Error::Authentication(msg) = err {
+            assert!(msg.contains("PATCH"));
+            assert!(msg.contains("not supported"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_signature_uniqueness() {
+        let provider = OAuth1Provider::new("ck", "cs", "at", "ats");
+
+        // Create two identical requests
+        let req1 = reqwest::Request::new(
+            reqwest::Method::POST,
+            "https://api.twitter.com/2/tweets".parse().unwrap(),
+        );
+
+        let req2 = reqwest::Request::new(
+            reqwest::Method::POST,
+            "https://api.twitter.com/2/tweets".parse().unwrap(),
+        );
+
+        let auth_req1 = provider.authenticate(req1).await.unwrap();
+
+        // Small delay to ensure different timestamp/nonce
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        let auth_req2 = provider.authenticate(req2).await.unwrap();
+
+        let header1 = auth_req1
+            .headers()
+            .get(reqwest::header::AUTHORIZATION)
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        let header2 = auth_req2
+            .headers()
+            .get(reqwest::header::AUTHORIZATION)
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        // Headers should be different due to unique nonce and timestamp
+        assert_ne!(header1, header2);
     }
 }
