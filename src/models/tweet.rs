@@ -293,3 +293,105 @@ pub struct EditControls {
     pub is_edit_eligible: bool,
     pub editable_until: DateTime<Utc>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tweet_minimal_roundtrip() {
+        let json = r#"{
+            "id": "1234567890",
+            "text": "Hello, world!",
+            "edit_history_tweet_ids": ["1234567890"]
+        }"#;
+
+        let tweet: Tweet = serde_json::from_str(json).unwrap();
+        assert_eq!(tweet.id, "1234567890");
+        assert_eq!(tweet.text, "Hello, world!");
+
+        let serialized = serde_json::to_string(&tweet).unwrap();
+        let roundtrip: Tweet = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tweet.id, roundtrip.id);
+        assert_eq!(tweet.text, roundtrip.text);
+    }
+
+    #[test]
+    fn test_tweet_unknown_fields_captured() {
+        let json = r#"{
+            "id": "123",
+            "text": "test",
+            "edit_history_tweet_ids": [],
+            "unknown_future_field": "some_value",
+            "experimental_metric": 42
+        }"#;
+
+        let tweet: Tweet = serde_json::from_str(json).unwrap();
+        assert_eq!(tweet.additional_fields.len(), 2);
+        assert!(tweet.additional_fields.contains_key("unknown_future_field"));
+        assert!(tweet.additional_fields.contains_key("experimental_metric"));
+
+        // Verify roundtrip preserves unknown fields
+        let serialized = serde_json::to_string(&tweet).unwrap();
+        let roundtrip: Tweet = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(roundtrip.additional_fields.len(), 2);
+    }
+
+    #[test]
+    fn test_tweet_optional_fields_missing() {
+        let json = r#"{
+            "id": "123",
+            "text": "test",
+            "edit_history_tweet_ids": []
+        }"#;
+
+        let tweet: Tweet = serde_json::from_str(json).unwrap();
+        assert!(tweet.author_id.is_none());
+        assert!(tweet.created_at.is_none());
+        assert!(tweet.public_metrics.is_none());
+        assert!(tweet.entities.is_none());
+    }
+
+    #[test]
+    fn test_tweet_metrics_unknown_fields() {
+        let json = r#"{
+            "like_count": 100,
+            "retweet_count": 50,
+            "future_engagement_score": 95.5
+        }"#;
+
+        let metrics: TweetMetrics = serde_json::from_str(json).unwrap();
+        assert_eq!(metrics.like_count, Some(100));
+        assert_eq!(metrics.additional_fields.len(), 1);
+        assert!(metrics.additional_fields.contains_key("future_engagement_score"));
+    }
+
+    #[test]
+    fn test_reference_type_serialization() {
+        let ref_type = ReferenceType::Retweeted;
+        let json = serde_json::to_string(&ref_type).unwrap();
+        assert_eq!(json, r#""retweeted""#);
+
+        let ref_type = ReferenceType::Quoted;
+        let json = serde_json::to_string(&ref_type).unwrap();
+        assert_eq!(json, r#""quoted""#);
+    }
+
+    #[test]
+    fn test_entities_roundtrip() {
+        let json = r#"{
+            "urls": [
+                {"start": 0, "end": 23, "url": "https://t.co/abc", "expanded_url": "https://example.com", "display_url": "example.com", "unwound_url": null}
+            ],
+            "hashtags": [
+                {"start": 24, "end": 30, "tag": "rust"}
+            ]
+        }"#;
+
+        let entities: Entities = serde_json::from_str(json).unwrap();
+        assert!(entities.urls.is_some());
+        assert_eq!(entities.urls.as_ref().unwrap().len(), 1);
+        assert!(entities.hashtags.is_some());
+        assert_eq!(entities.hashtags.as_ref().unwrap()[0].tag, "rust");
+    }
+}

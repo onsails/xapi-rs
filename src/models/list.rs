@@ -48,3 +48,42 @@ pub struct List {
     #[serde(flatten)]
     pub additional_fields: HashMap<String, serde_json::Value>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_list_roundtrip() {
+        let json = r#"{
+            "id": "list123",
+            "name": "Rust Developers",
+            "description": "Cool Rust people",
+            "member_count": 100,
+            "private": false
+        }"#;
+
+        let list: List = serde_json::from_str(json).unwrap();
+        assert_eq!(list.id, "list123");
+        assert_eq!(list.name, "Rust Developers");
+        assert_eq!(list.member_count, Some(100));
+
+        let serialized = serde_json::to_string(&list).unwrap();
+        let roundtrip: List = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(list.id, roundtrip.id);
+    }
+
+    #[test]
+    fn test_list_unknown_fields_captured() {
+        let json = r#"{
+            "id": "123",
+            "name": "Test List",
+            "future_category": "technology",
+            "ai_curated": true
+        }"#;
+
+        let list: List = serde_json::from_str(json).unwrap();
+        assert_eq!(list.additional_fields.len(), 2);
+        assert!(list.additional_fields.contains_key("future_category"));
+    }
+}

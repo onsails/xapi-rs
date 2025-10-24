@@ -156,3 +156,71 @@ pub enum VerifiedType {
     /// No verification
     None,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_user_minimal_roundtrip() {
+        let json = r#"{
+            "id": "123456",
+            "name": "Test User",
+            "username": "testuser"
+        }"#;
+
+        let user: User = serde_json::from_str(json).unwrap();
+        assert_eq!(user.id, "123456");
+        assert_eq!(user.name, "Test User");
+        assert_eq!(user.username, "testuser");
+
+        let serialized = serde_json::to_string(&user).unwrap();
+        let roundtrip: User = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(user.id, roundtrip.id);
+    }
+
+    #[test]
+    fn test_user_unknown_fields_captured() {
+        let json = r#"{
+            "id": "123",
+            "name": "Test",
+            "username": "test",
+            "future_badge": "premium",
+            "experimental_score": 98.5
+        }"#;
+
+        let user: User = serde_json::from_str(json).unwrap();
+        assert_eq!(user.additional_fields.len(), 2);
+        assert!(user.additional_fields.contains_key("future_badge"));
+        assert!(user.additional_fields.contains_key("experimental_score"));
+
+        // Verify roundtrip
+        let serialized = serde_json::to_string(&user).unwrap();
+        let roundtrip: User = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(roundtrip.additional_fields.len(), 2);
+    }
+
+    #[test]
+    fn test_user_metrics_roundtrip() {
+        let json = r#"{
+            "followers_count": 1000,
+            "following_count": 500,
+            "tweet_count": 2500
+        }"#;
+
+        let metrics: UserMetrics = serde_json::from_str(json).unwrap();
+        assert_eq!(metrics.followers_count, Some(1000));
+        assert_eq!(metrics.following_count, Some(500));
+    }
+
+    #[test]
+    fn test_verified_type_serialization() {
+        let vtype = VerifiedType::Blue;
+        let json = serde_json::to_string(&vtype).unwrap();
+        assert_eq!(json, r#""blue""#);
+
+        let vtype = VerifiedType::Government;
+        let json = serde_json::to_string(&vtype).unwrap();
+        assert_eq!(json, r#""government""#);
+    }
+}

@@ -103,3 +103,48 @@ pub struct MediaVariant {
     /// Direct URL to this variant
     pub url: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_media_roundtrip() {
+        let json = r#"{
+            "media_key": "media123",
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/abc.jpg",
+            "width": 1200,
+            "height": 800
+        }"#;
+
+        let media: Media = serde_json::from_str(json).unwrap();
+        assert_eq!(media.media_key, "media123");
+        assert!(matches!(media.media_type, MediaType::Photo));
+
+        let serialized = serde_json::to_string(&media).unwrap();
+        let roundtrip: Media = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(media.media_key, roundtrip.media_key);
+    }
+
+    #[test]
+    fn test_media_unknown_fields_captured() {
+        let json = r#"{
+            "media_key": "123",
+            "type": "video",
+            "future_quality": "4k",
+            "ai_generated": true
+        }"#;
+
+        let media: Media = serde_json::from_str(json).unwrap();
+        assert_eq!(media.additional_fields.len(), 2);
+        assert!(media.additional_fields.contains_key("future_quality"));
+    }
+
+    #[test]
+    fn test_media_type_deserialization() {
+        let json = r#""animated_gif""#;
+        let mtype: MediaType = serde_json::from_str(json).unwrap();
+        assert!(matches!(mtype, MediaType::AnimatedGif));
+    }
+}

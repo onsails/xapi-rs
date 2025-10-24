@@ -94,3 +94,47 @@ pub enum SpaceState {
     Scheduled,
     Ended,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_space_roundtrip() {
+        let json = r#"{
+            "id": "space123",
+            "state": "Live",
+            "title": "Tech Talk",
+            "participant_count": 42
+        }"#;
+
+        let space: Space = serde_json::from_str(json).unwrap();
+        assert_eq!(space.id, "space123");
+        assert!(matches!(space.state, SpaceState::Live));
+
+        let serialized = serde_json::to_string(&space).unwrap();
+        let roundtrip: Space = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(space.id, roundtrip.id);
+    }
+
+    #[test]
+    fn test_space_unknown_fields_captured() {
+        let json = r#"{
+            "id": "123",
+            "state": "Scheduled",
+            "future_feature": "recording",
+            "ai_moderation": true
+        }"#;
+
+        let space: Space = serde_json::from_str(json).unwrap();
+        assert_eq!(space.additional_fields.len(), 2);
+        assert!(space.additional_fields.contains_key("future_feature"));
+    }
+
+    #[test]
+    fn test_space_state_serialization() {
+        let state = SpaceState::Ended;
+        let json = serde_json::to_string(&state).unwrap();
+        assert_eq!(json, r#""Ended""#);
+    }
+}

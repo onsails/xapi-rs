@@ -234,3 +234,161 @@ pub struct Withheld {
     #[serde(flatten)]
     pub additional_fields: HashMap<String, serde_json::Value>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_api_response_roundtrip() {
+        let json = r#"{"data":{"id":"123"},"meta":{"result_count":1}}"#;
+        let response: ApiResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+        let serialized = serde_json::to_string(&response).unwrap();
+        let deserialized: ApiResponse<serde_json::Value> = serde_json::from_str(&serialized).unwrap();
+
+        assert!(response.data.is_some());
+        assert!(deserialized.data.is_some());
+    }
+
+    #[test]
+    fn test_response_meta_roundtrip() {
+        let json = r#"{
+            "result_count": 10,
+            "next_token": "abc123",
+            "newest_id": "999",
+            "oldest_id": "111"
+        }"#;
+
+        let meta: ResponseMeta = serde_json::from_str(json).unwrap();
+        assert_eq!(meta.result_count, Some(10));
+        assert_eq!(meta.next_token, Some("abc123".to_string()));
+
+        let serialized = serde_json::to_string(&meta).unwrap();
+        let roundtrip: ResponseMeta = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(meta.result_count, roundtrip.result_count);
+    }
+
+    #[test]
+    fn test_response_meta_unknown_fields_captured() {
+        let json = r#"{
+            "result_count": 5,
+            "future_field": "new_value",
+            "experimental_count": 100
+        }"#;
+
+        let meta: ResponseMeta = serde_json::from_str(json).unwrap();
+        assert_eq!(meta.result_count, Some(5));
+        assert_eq!(meta.additional_fields.len(), 2);
+        assert!(meta.additional_fields.contains_key("future_field"));
+        assert!(meta.additional_fields.contains_key("experimental_count"));
+
+        // Verify unknown fields are preserved in roundtrip
+        let serialized = serde_json::to_string(&meta).unwrap();
+        let roundtrip: ResponseMeta = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(roundtrip.additional_fields.len(), 2);
+    }
+
+    #[test]
+    fn test_api_error_roundtrip() {
+        let json = r#"{
+            "message": "Rate limit exceeded",
+            "code": "RATE_LIMIT_EXCEEDED",
+            "parameter": "max_results"
+        }"#;
+
+        let error: ApiError = serde_json::from_str(json).unwrap();
+        assert_eq!(error.message, "Rate limit exceeded");
+        assert_eq!(error.code, Some("RATE_LIMIT_EXCEEDED".to_string()));
+
+        let serialized = serde_json::to_string(&error).unwrap();
+        let roundtrip: ApiError = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(error.message, roundtrip.message);
+    }
+
+    #[test]
+    fn test_place_unknown_fields_captured() {
+        let json = r#"{
+            "id": "place123",
+            "full_name": "San Francisco, CA",
+            "future_timezone": "America/Los_Angeles",
+            "new_metadata": {"key": "value"}
+        }"#;
+
+        let place: Place = serde_json::from_str(json).unwrap();
+        assert_eq!(place.id, "place123");
+        assert_eq!(place.additional_fields.len(), 2);
+        assert!(place.additional_fields.contains_key("future_timezone"));
+        assert!(place.additional_fields.contains_key("new_metadata"));
+    }
+
+    #[test]
+    fn test_poll_roundtrip() {
+        let json = r#"{
+            "id": "poll123",
+            "options": [
+                {"position": 1, "label": "Yes", "votes": 10},
+                {"position": 2, "label": "No", "votes": 5}
+            ],
+            "duration_minutes": 1440,
+            "voting_status": "closed"
+        }"#;
+
+        let poll: Poll = serde_json::from_str(json).unwrap();
+        assert_eq!(poll.id, "poll123");
+        assert_eq!(poll.options.len(), 2);
+        assert_eq!(poll.options[0].votes, 10);
+
+        let serialized = serde_json::to_string(&poll).unwrap();
+        let roundtrip: Poll = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(poll.id, roundtrip.id);
+        assert_eq!(poll.options.len(), roundtrip.options.len());
+    }
+
+    #[test]
+    fn test_reply_settings_serialization() {
+        let settings = ReplySettings::Everyone;
+        let json = serde_json::to_string(&settings).unwrap();
+        assert_eq!(json, r#""everyone""#);
+
+        let settings = ReplySettings::MentionedUsers;
+        let json = serde_json::to_string(&settings).unwrap();
+        assert_eq!(json, r#""mentioned_users""#);
+    }
+
+    #[test]
+    fn test_reply_settings_deserialization() {
+        let json = r#""everyone""#;
+        let settings: ReplySettings = serde_json::from_str(json).unwrap();
+        assert!(matches!(settings, ReplySettings::Everyone));
+
+        let json = r#""following""#;
+        let settings: ReplySettings = serde_json::from_str(json).unwrap();
+        assert!(matches!(settings, ReplySettings::Following));
+    }
+
+    #[test]
+    fn test_withheld_default_fields() {
+        let json = r#"{}"#;
+        let withheld: Withheld = serde_json::from_str(json).unwrap();
+
+        assert!(withheld.copyright.is_none());
+        assert!(withheld.country_codes.is_none());
+        assert!(withheld.scope.is_none());
+        assert_eq!(withheld.additional_fields.len(), 0);
+    }
+
+    #[test]
+    fn test_includes_forward_compatibility() {
+        let json = r#"{
+            "users": [{"id": "123", "name": "Test", "username": "test"}],
+            "future_includes": ["item1", "item2"]
+        }"#;
+
+        let includes: Includes = serde_json::from_str(json).unwrap();
+        assert!(includes.users.is_some());
+        assert_eq!(includes.additional_fields.len(), 1);
+        assert!(includes.additional_fields.contains_key("future_includes"));
+    }
+}
+
