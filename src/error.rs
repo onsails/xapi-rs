@@ -7,6 +7,7 @@
 //! - Error conversion implementations
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Main error type for the X API client
@@ -91,7 +92,7 @@ pub enum Error {
 ///
 /// When the API returns an error response, it includes structured error details
 /// with error codes, messages, and context about what went wrong.
-#[derive(Error, Debug, Clone, PartialEq)]
+#[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[error("{message} (code: {code})")]
 #[non_exhaustive]
 pub struct ApiErrorDetail {
