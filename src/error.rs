@@ -15,6 +15,7 @@ use thiserror::Error;
 /// interacting with the X API v2. Errors are classified for retry logic
 /// and include rich context for debugging.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Network or HTTP request failed
     #[error("HTTP request failed: {0}")]
@@ -90,26 +91,27 @@ pub enum Error {
 ///
 /// When the API returns an error response, it includes structured error details
 /// with error codes, messages, and context about what went wrong.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq)]
 #[error("{message} (code: {code})")]
+#[non_exhaustive]
 pub struct ApiErrorDetail {
     /// CAPS_CASE error code from the API
-    pub code: String,
+    code: String,
 
     /// Human-readable error message
-    pub message: String,
+    message: String,
 
     /// The problematic parameter (if applicable)
-    pub parameter: Option<String>,
+    parameter: Option<String>,
 
     /// The problematic value (if applicable)
-    pub value: Option<String>,
+    value: Option<String>,
 
     /// Problem type URI (if provided)
-    pub type_uri: Option<String>,
+    type_uri: Option<String>,
 
     /// HTTP status code
-    pub status: Option<u16>,
+    status: Option<u16>,
 }
 
 impl Error {
@@ -179,7 +181,8 @@ impl Error {
                 if *reset_at > now {
                     (*reset_at - now).to_std().ok()
                 } else {
-                    Some(std::time::Duration::from_secs(0))
+                    // If reset time has passed, wait a small delay to avoid retry spam
+                    Some(std::time::Duration::from_secs(1))
                 }
             }
             // For other retryable errors, use exponential backoff (return None)
@@ -266,6 +269,36 @@ impl ApiErrorDetail {
         self.type_uri = Some(type_uri.into());
         self
     }
+
+    /// Get the error code
+    pub fn code(&self) -> &str {
+        &self.code
+    }
+
+    /// Get the error message
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// Get the problematic parameter
+    pub fn parameter(&self) -> Option<&str> {
+        self.parameter.as_deref()
+    }
+
+    /// Get the problematic value
+    pub fn value(&self) -> Option<&str> {
+        self.value.as_deref()
+    }
+
+    /// Get the problem type URI
+    pub fn type_uri(&self) -> Option<&str> {
+        self.type_uri.as_deref()
+    }
+
+    /// Get the HTTP status code
+    pub fn status(&self) -> Option<u16> {
+        self.status
+    }
 }
 
 /// Result type alias for this crate
@@ -338,11 +371,11 @@ mod tests {
             .with_value("1000")
             .with_type_uri("https://api.twitter.com/2/problems/invalid-request");
 
-        assert_eq!(detail.code, "INVALID_PARAM");
-        assert_eq!(detail.message, "Bad value");
-        assert_eq!(detail.status, Some(400));
-        assert_eq!(detail.parameter, Some("max_results".to_string()));
-        assert_eq!(detail.value, Some("1000".to_string()));
+        assert_eq!(detail.code(), "INVALID_PARAM");
+        assert_eq!(detail.message(), "Bad value");
+        assert_eq!(detail.status(), Some(400));
+        assert_eq!(detail.parameter(), Some("max_results"));
+        assert_eq!(detail.value(), Some("1000"));
     }
 
     #[test]
