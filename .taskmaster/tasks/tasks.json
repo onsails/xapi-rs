@@ -284,7 +284,7 @@
           4,
           5
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": [
           {
             "id": 1,
@@ -292,7 +292,7 @@
             "description": "Implement the XClient struct in src/client.rs as a generic over HttpClient, including fields for auth, rate limiter, retry policy, timeouts, and base_url.",
             "dependencies": [],
             "details": "Create the XClient struct with generic parameter for HttpClient. Add fields for authentication provider, rate limiter, retry policy, timeout settings, and base_url. Ensure all fields have appropriate types and visibility for builder access.",
-            "status": "done",
+            "status": "pending",
             "testStrategy": "Unit test: Ensure struct compiles and fields are accessible. Test default instantiation."
           },
           {
@@ -303,7 +303,7 @@
               1
             ],
             "details": "Create XClientBuilder with optional fields matching XClient. Implement methods for setting each field, returning &mut self for chaining. Provide a build() method that constructs XClient, applying defaults where needed. Ensure method chaining and error handling as per Rust conventions[1][2][5].",
-            "status": "done",
+            "status": "pending",
             "testStrategy": "Unit test: Verify builder methods chain correctly and build() produces valid XClient with defaults and custom values."
           },
           {
@@ -314,7 +314,7 @@
               2
             ],
             "details": "Implement builder methods such as auth_provider(), rate_limiter(), retry_policy(), and timeout(). Each should accept appropriate types or trait objects, set the corresponding field, and return &mut self. Ensure ergonomic API and documentation.",
-            "status": "done",
+            "status": "pending",
             "testStrategy": "Unit test: Confirm each configuration method sets the correct field and supports chaining. Test with both default and custom values."
           },
           {
@@ -327,7 +327,7 @@
               3
             ],
             "details": "Mark relevant methods as async, use Tokio primitives for timeouts and async execution. Ensure compatibility with async trait bounds for HttpClient and AuthProvider. Document async requirements in API.",
-            "status": "done",
+            "status": "pending",
             "testStrategy": "Integration test: Instantiate XClient and perform async operations in a Tokio runtime. Verify correct async behavior and awaitability."
           },
           {
@@ -341,7 +341,7 @@
               4
             ],
             "details": "Implement trait bounds and trait object support for AuthProvider and HttpClient in XClient and its builder. Ensure builder methods accept trait objects or generics as needed. Validate that method chaining works seamlessly with trait-based configuration.",
-            "status": "done",
+            "status": "pending",
             "testStrategy": "Integration test: Use mock implementations of AuthProvider and HttpClient to instantiate XClient via the builder and verify method chaining and trait integration."
           }
         ]
@@ -1031,7 +1031,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-24T18:39:56.085Z",
+      "updated": "2025-10-24T15:48:33.762Z",
       "description": "Tasks for master context"
     }
   }
