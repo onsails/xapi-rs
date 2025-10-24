@@ -27,8 +27,9 @@ pub enum Error {
     Serialization(#[from] serde_json::Error),
 
     /// API returned an error response with details
+    /// Boxed to keep Error size reasonable (ApiErrorDetail is large)
     #[error("API error: {0}")]
-    Api(#[from] ApiErrorDetail),
+    Api(#[from] Box<ApiErrorDetail>),
 
     /// Authentication failed
     #[error("Authentication failed: {0}")]
@@ -355,7 +356,7 @@ mod tests {
     #[test]
     fn test_error_api_5xx_is_retryable() {
         let detail = ApiErrorDetail::new("INTERNAL_ERROR", "Server error").with_status(500);
-        let err = Error::Api(detail);
+        let err = Error::Api(Box::new(detail));
 
         assert!(err.is_retryable());
         assert!(err.is_server_error());
@@ -365,7 +366,7 @@ mod tests {
     #[test]
     fn test_error_api_4xx_not_retryable() {
         let detail = ApiErrorDetail::new("BAD_REQUEST", "Invalid parameter").with_status(400);
-        let err = Error::Api(detail);
+        let err = Error::Api(Box::new(detail));
 
         assert!(!err.is_retryable());
         assert!(err.is_client_error());
