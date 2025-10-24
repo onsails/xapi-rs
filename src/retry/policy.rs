@@ -5,7 +5,7 @@ use std::time::Duration;
 /// Retry policy configuration for failed requests
 ///
 /// Configures the exponential backoff retry behavior for transient errors.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RetryPolicy {
     /// Maximum number of retry attempts (default: 3)
     pub max_retries: u32,

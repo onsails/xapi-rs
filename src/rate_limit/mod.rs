@@ -12,7 +12,7 @@ pub mod middleware;
 /// Rate limit configuration
 ///
 /// Configures how the client handles rate limiting from the X API.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RateLimitConfig {
     /// Global concurrent request limit (default: None)
     pub global_limit: Option<u32>,
