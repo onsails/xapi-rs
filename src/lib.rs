@@ -25,6 +25,7 @@ pub mod pagination;
 pub mod rate_limit;
 pub mod retry;
 pub mod streaming;
+pub mod util;
 
 // Re-export commonly used types
 pub use client::Client;
