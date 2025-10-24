@@ -2434,6 +2434,7 @@ version = "0.1.0"
 dependencies = [
  "async-stream",
  "backoff",
+ "chrono",
  "governor",
  "oauth1-request",
  "oauth2",
