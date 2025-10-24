@@ -1,0 +1,1027 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Set Up Crate Structure and Core Dependencies",
+        "description": "Initialize the Rust crate with the prescribed directory structure and configure all core dependencies with correct features and MSRV.",
+        "details": "Create the x-api-client crate with the exact src/ layout as specified in the PRD. Add dependencies in Cargo.toml: tokio (1.40+, features: rt-multi-thread, macros, time, sync), reqwest (0.12+, features: json, stream, cookies, gzip), thiserror (1.0+), governor (0.7+), backoff (0.4+), serde (1.0+, features: derive), serde_json, tokio-stream (0.1+), async-stream (0.4+), tokio-cron-scheduler (0.13+, optional), oauth1 (0.6+), oauth2 (0.4+). Set MSRV to 1.75+ in Cargo.toml and document it. Use workspace and feature flags for optional components (e.g., scheduling, real API tests).",
+        "testStrategy": "cargo check and cargo test for build validation; verify all features compile; ensure MSRV is enforced via CI.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Establish Directory and Module Structure per PRD",
+            "description": "Create the x-api-client crate with the exact src/ directory and module layout as specified in the Product Requirements Document (PRD).",
+            "dependencies": [],
+            "details": "Initialize the crate using cargo. Set up src/ with lib.rs (or main.rs if binary), and create all required submodules and folders (e.g., src/client/, src/models/, src/utils/, etc.) as outlined in the PRD. Ensure mod.rs files are used for directory-based modules and that the structure supports future scalability and maintainability, following Rust best practices.",
+            "status": "pending",
+            "testStrategy": "cargo check should succeed; verify all modules are discoverable and importable; directory tree matches PRD specification."
+          },
+          {
+            "id": 2,
+            "title": "Add and Configure Core Dependencies in Cargo.toml",
+            "description": "Add all required dependencies to Cargo.toml with correct versions and feature flags, including optional dependencies for scheduling and API tests.",
+            "dependencies": [
+              1
+            ],
+            "details": "Edit Cargo.toml to include: tokio (1.40+ with rt-multi-thread, macros, time, sync), reqwest (0.12+ with json, stream, cookies, gzip), thiserror (1.0+), governor (0.7+), backoff (0.4+), serde (1.0+ with derive), serde_json, tokio-stream (0.1+), async-stream (0.4+), tokio-cron-scheduler (0.13+, optional), oauth1 (0.6+), oauth2 (0.4+). Use [features] section to make scheduling and real API tests optional. Ensure all dependencies are compatible and compile together.",
+            "status": "pending",
+            "testStrategy": "cargo check and cargo test with all feature combinations; verify optional dependencies are only included when features are enabled."
+          },
+          {
+            "id": 3,
+            "title": "Enforce and Document MSRV (Minimum Supported Rust Version)",
+            "description": "Set the MSRV to 1.75+ in Cargo.toml and document it clearly for contributors and CI enforcement.",
+            "dependencies": [
+              2
+            ],
+            "details": "Add the rust-version field to Cargo.toml (rust-version = \"1.75\"). Document the MSRV in README.md and CONTRIBUTING.md. Update CI configuration (e.g., GitHub Actions) to include a job that builds and tests the crate with Rust 1.75 to ensure ongoing compliance.",
+            "status": "pending",
+            "testStrategy": "CI must fail if built with a Rust version below 1.75; manual check that documentation and Cargo.toml reflect MSRV."
+          },
+          {
+            "id": 4,
+            "title": "Set Up Workspace and Feature Flags for Optional Components",
+            "description": "Configure the crate as part of a workspace if needed and implement feature flags for optional components like scheduling and real API tests.",
+            "dependencies": [
+              3
+            ],
+            "details": "If the project is part of a multi-crate workspace, add a workspace Cargo.toml at the repository root and include x-api-client. In x-api-client's Cargo.toml, define [features] for optional components (e.g., 'scheduling', 'real_api_tests'), ensuring dependencies like tokio-cron-scheduler are only enabled when the corresponding feature is active. Document feature usage in README.md.",
+            "status": "pending",
+            "testStrategy": "cargo check and cargo test with and without optional features; verify workspace builds all members if applicable."
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Implement Core Data Models with Serde",
+        "description": "Define all core request and response types (Tweet, User, StreamRule, ApiResponse, etc.) using serde for serialization/deserialization.",
+        "details": "Implement models in src/models/ as per PRD, using #[derive(Serialize, Deserialize, Debug, Clone)] and #[serde(default)] for optional fields. Use Option<T> for all non-required fields and flatten unknown fields into HashMap<String, Value> for forward compatibility. Use enums for field expansions and non-exhaustive enums for extensibility. Write custom deserializers for API quirks as needed.",
+        "testStrategy": "Unit tests with proptest for round-trip serialization/deserialization; test with real and mock API payloads for compatibility.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define Core Data Model Structs and Enums with Serde Derives",
+            "description": "Create Rust structs and enums for all core request and response types (Tweet, User, StreamRule, ApiResponse, etc.) using #[derive(Serialize, Deserialize, Debug, Clone)].",
+            "dependencies": [],
+            "details": "Implement each model in src/models/ as specified in the PRD. Use #[serde(default)] for optional fields and Option<T> for non-required fields. For field expansions, use enums and apply non-exhaustive patterns for extensibility. Ensure all models are annotated for serde compatibility.",
+            "status": "pending",
+            "testStrategy": "Unit tests for round-trip serialization/deserialization using serde_json and proptest."
+          },
+          {
+            "id": 2,
+            "title": "Implement Forward Compatibility and Unknown Field Handling",
+            "description": "Add support for flattening unknown fields into HashMap<String, Value> for all models to ensure forward compatibility with evolving API schemas.",
+            "dependencies": [
+              1
+            ],
+            "details": "For each struct, include a #[serde(flatten)] field of type HashMap<String, Value> to capture any fields not explicitly defined. Validate that unknown fields are correctly captured during deserialization and preserved during serialization.",
+            "status": "pending",
+            "testStrategy": "Unit tests with payloads containing extra fields; verify unknown fields are stored and round-tripped."
+          },
+          {
+            "id": 3,
+            "title": "Write Custom Deserializers for API Quirks and Edge Cases",
+            "description": "Implement custom deserialization logic for fields or types that do not conform to standard serde patterns due to API quirks.",
+            "dependencies": [
+              1
+            ],
+            "details": "Identify fields requiring custom deserialization (e.g., inconsistent types, special formats). Use serde's custom deserializer traits and Visitor pattern to handle these cases. Document all custom logic and ensure robust error handling.",
+            "status": "pending",
+            "testStrategy": "Unit tests for each custom deserializer using real and mock API payloads; property tests for edge cases."
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Define Error Types and Error Handling Hierarchy",
+        "description": "Implement XApiError enum and ApiErrorDetail struct using thiserror, supporting error context, retry classification, and error mapping.",
+        "details": "In src/error.rs, define XApiError as per PRD, using #[derive(Error, Debug)] and implement is_retryable and retry_after methods. Ensure all error variants are covered, including network, rate limit, authentication, serialization, and streaming errors. Implement From conversions for reqwest::Error and serde_json::Error. Provide detailed error messages and context.",
+        "testStrategy": "Unit tests for error conversion, error messages, and retry classification logic. Simulate API error payloads and verify mapping.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define XApiError Enum with All Error Variants Using thiserror",
+            "description": "Create the XApiError enum in src/error.rs, covering all required error cases and leveraging the thiserror crate for ergonomic error definitions.",
+            "dependencies": [],
+            "details": "Enumerate all error variants as specified in the PRD (network, rate limit, authentication, serialization, streaming, etc.). Use #[derive(Error, Debug)] and annotate each variant with #[error(...)] for clear error messages. Implement From conversions for reqwest::Error and serde_json::Error using #[from] where possible, and provide custom implementations if needed. Ensure each variant carries sufficient context for debugging and user feedback.",
+            "status": "pending",
+            "testStrategy": "Unit tests to verify that each error variant is constructed correctly, error messages are as expected, and From conversions work for reqwest::Error and serde_json::Error."
+          },
+          {
+            "id": 2,
+            "title": "Implement ApiErrorDetail Struct for Error Context and Metadata",
+            "description": "Design and implement the ApiErrorDetail struct to encapsulate additional error context, such as HTTP status, error codes, and retry metadata.",
+            "dependencies": [
+              1
+            ],
+            "details": "Define ApiErrorDetail with fields for error context (e.g., HTTP status, error code, message, optional retry-after). Integrate this struct into relevant XApiError variants as needed. Ensure that error details can be easily extracted and displayed for debugging and logging. Document the struct and its usage within the error handling hierarchy.",
+            "status": "pending",
+            "testStrategy": "Unit tests to construct ApiErrorDetail with various field combinations and verify correct integration with XApiError variants."
+          },
+          {
+            "id": 3,
+            "title": "Implement Error Handling Methods: is_retryable and retry_after",
+            "description": "Add methods to XApiError for retry classification and extracting retry timing, supporting robust error handling and backoff strategies.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement is_retryable and retry_after methods on XApiError, using error variant and ApiErrorDetail context to determine retryability and extract retry-after information. Ensure logic covers all error types, including network and rate limit errors. Provide documentation and examples for usage in client code.",
+            "status": "pending",
+            "testStrategy": "Unit tests for is_retryable and retry_after, simulating different error scenarios and verifying correct classification and timing extraction."
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Implement HTTP Client Trait Abstraction",
+        "description": "Define the HttpClient trait and provide a default implementation using reqwest, supporting async requests and testability.",
+        "details": "In src/lib.rs and src/client.rs, define the HttpClient trait using async_trait for async support. Implement a ReqwestClient struct that wraps reqwest::Client and implements HttpClient. Ensure trait is Send + Sync and supports request/response middleware. Provide a mock implementation for testing. Use Arc<reqwest::Client> for efficient sharing as per best practices[2][3].",
+        "testStrategy": "Unit tests with mock client for trait correctness; integration tests with ReqwestClient against a mock server.",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define the HttpClient Trait with Async Support and Middleware Hooks",
+            "description": "Design and implement the HttpClient trait in src/lib.rs, ensuring async support and extensibility for middleware.",
+            "dependencies": [],
+            "details": "Use the async_trait crate to enable async trait methods. Specify trait bounds for Send + Sync. Include method signatures for common HTTP operations (GET, POST, etc.) and allow for request/response middleware hooks. Document trait requirements for testability and extensibility.",
+            "status": "pending",
+            "testStrategy": "Unit tests for trait method signatures and middleware hook invocation."
+          },
+          {
+            "id": 2,
+            "title": "Implement ReqwestClient Struct Wrapping reqwest::Client",
+            "description": "Create ReqwestClient in src/client.rs that wraps Arc<reqwest::Client> and implements the HttpClient trait.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement all trait methods using reqwest's async API. Use Arc<reqwest::Client> for efficient sharing and thread safety. Integrate request/response middleware support. Ensure all trait bounds are satisfied and document usage patterns.",
+            "status": "pending",
+            "testStrategy": "Integration tests for async HTTP requests, middleware execution, and thread safety."
+          },
+          {
+            "id": 3,
+            "title": "Provide Mock Implementation for HttpClient Trait for Testing",
+            "description": "Develop a mock client that implements HttpClient, enabling isolated and deterministic unit tests.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create a MockHttpClient struct with configurable responses and error simulation. Ensure compatibility with async_trait and all trait methods. Integrate with test suite to verify trait correctness and middleware behavior.",
+            "status": "pending",
+            "testStrategy": "Unit tests using MockHttpClient to validate trait contract and middleware logic."
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Implement OAuth 1.0a Authentication Provider",
+        "description": "Develop OAuth1Provider implementing AuthProvider trait, supporting header signing and endpoint compatibility checks.",
+        "details": "In src/auth/oauth1.rs, use oauth1 crate (0.6+) to implement OAuth1Provider. Ensure correct signature generation, header injection, and endpoint support logic. Provide unit tests for signature correctness and error handling. Integrate with XClient builder pattern.",
+        "testStrategy": "Unit tests for signature generation and header injection; integration tests with mock endpoints requiring OAuth 1.0a.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define and Integrate AuthProvider Trait for OAuth1Provider",
+            "description": "Create the OAuth1Provider struct and implement the AuthProvider trait, ensuring trait methods are correctly defined and integrated.",
+            "dependencies": [],
+            "details": "In src/auth/oauth1.rs, define OAuth1Provider and implement all required methods from the AuthProvider trait. Ensure trait integration supports future extension and is compatible with the crate's architecture.",
+            "status": "pending",
+            "testStrategy": "Unit tests verifying trait method signatures and correct trait object usage."
+          },
+          {
+            "id": 2,
+            "title": "Implement OAuth 1.0a Signature Generation Logic",
+            "description": "Develop logic for generating OAuth 1.0a signatures using the oauth1 crate, ensuring compliance with protocol requirements.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use oauth1 crate (0.6+) to generate request signatures, including correct handling of consumer keys, secrets, tokens, and request parameters. Validate signature generation against known test vectors and RFC examples.",
+            "status": "pending",
+            "testStrategy": "Unit tests comparing generated signatures to RFC-compliant examples and known-good outputs."
+          },
+          {
+            "id": 3,
+            "title": "Implement Header Injection and Endpoint Compatibility Checks",
+            "description": "Add logic to inject OAuth headers into requests and verify endpoint compatibility for OAuth 1.0a authentication.",
+            "dependencies": [
+              2
+            ],
+            "details": "Ensure OAuth1Provider correctly inserts Authorization headers into outgoing requests and checks if endpoints require OAuth 1.0a. Implement endpoint compatibility logic to avoid signing unsupported endpoints.",
+            "status": "pending",
+            "testStrategy": "Unit tests for header presence and correctness; integration tests with endpoints requiring OAuth 1.0a."
+          },
+          {
+            "id": 4,
+            "title": "Develop Error Handling and Unit Tests for OAuth1Provider",
+            "description": "Implement robust error handling for signature generation, header injection, and endpoint checks. Provide comprehensive unit tests.",
+            "dependencies": [
+              3
+            ],
+            "details": "Handle errors such as invalid credentials, signature failures, and unsupported endpoints. Write unit tests covering error scenarios and edge cases, ensuring graceful failure and clear error messages.",
+            "status": "pending",
+            "testStrategy": "Unit tests for all error paths; property tests for edge cases."
+          },
+          {
+            "id": 5,
+            "title": "Integrate OAuth1Provider with XClient Builder Pattern",
+            "description": "Integrate OAuth1Provider into the XClient builder, enabling seamless configuration and usage within client instantiation.",
+            "dependencies": [
+              4
+            ],
+            "details": "Modify XClient builder to accept OAuth1Provider as an authentication option. Ensure correct initialization, configuration, and lifecycle management within the builder pattern.",
+            "status": "pending",
+            "testStrategy": "Integration tests for XClient instantiation and authentication flow using OAuth1Provider."
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Implement XClient Struct and Builder Pattern",
+        "description": "Create the main XClient struct with builder pattern, supporting configuration of auth, rate limiting, retry policy, and timeouts.",
+        "details": "In src/client.rs, implement XClient as a generic over HttpClient, with fields for auth, rate limiter, retry policy, and base_url. Use builder pattern for ergonomic configuration, following Rust API guidelines[4][5]. Ensure all async operations use Tokio. Provide default values and allow custom configuration. Integrate with AuthProvider and HttpClient traits.",
+        "testStrategy": "Unit tests for builder correctness and configuration; integration tests for client instantiation and method chaining.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define XClient Struct with Generics and Core Fields",
+            "description": "Implement the XClient struct in src/client.rs as a generic over HttpClient, including fields for auth, rate limiter, retry policy, timeouts, and base_url.",
+            "dependencies": [],
+            "details": "Create the XClient struct with generic parameter for HttpClient. Add fields for authentication provider, rate limiter, retry policy, timeout settings, and base_url. Ensure all fields have appropriate types and visibility for builder access.",
+            "status": "pending",
+            "testStrategy": "Unit test: Ensure struct compiles and fields are accessible. Test default instantiation."
+          },
+          {
+            "id": 2,
+            "title": "Implement Builder Pattern for XClient",
+            "description": "Develop a builder struct and associated methods for ergonomic and safe configuration of XClient, following Rust API and builder pattern guidelines.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create XClientBuilder with optional fields matching XClient. Implement methods for setting each field, returning &mut self for chaining. Provide a build() method that constructs XClient, applying defaults where needed. Ensure method chaining and error handling as per Rust conventions[1][2][5].",
+            "status": "pending",
+            "testStrategy": "Unit test: Verify builder methods chain correctly and build() produces valid XClient with defaults and custom values."
+          },
+          {
+            "id": 3,
+            "title": "Add Configuration Methods for Auth, Rate Limiting, Retry, and Timeouts",
+            "description": "Expose builder methods to configure authentication, rate limiting, retry policy, and timeout settings, supporting both default and custom values.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement builder methods such as auth_provider(), rate_limiter(), retry_policy(), and timeout(). Each should accept appropriate types or trait objects, set the corresponding field, and return &mut self. Ensure ergonomic API and documentation.",
+            "status": "pending",
+            "testStrategy": "Unit test: Confirm each configuration method sets the correct field and supports chaining. Test with both default and custom values."
+          },
+          {
+            "id": 4,
+            "title": "Integrate Async Operations Using Tokio",
+            "description": "Ensure all XClient methods and builder operations that require I/O or network access are async and use Tokio runtime.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Mark relevant methods as async, use Tokio primitives for timeouts and async execution. Ensure compatibility with async trait bounds for HttpClient and AuthProvider. Document async requirements in API.",
+            "status": "pending",
+            "testStrategy": "Integration test: Instantiate XClient and perform async operations in a Tokio runtime. Verify correct async behavior and awaitability."
+          },
+          {
+            "id": 5,
+            "title": "Integrate AuthProvider and HttpClient Traits with Method Chaining",
+            "description": "Implement trait integration for AuthProvider and HttpClient, ensuring XClient supports method chaining and trait-based extensibility.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Implement trait bounds and trait object support for AuthProvider and HttpClient in XClient and its builder. Ensure builder methods accept trait objects or generics as needed. Validate that method chaining works seamlessly with trait-based configuration.",
+            "status": "pending",
+            "testStrategy": "Integration test: Use mock implementations of AuthProvider and HttpClient to instantiate XClient via the builder and verify method chaining and trait integration."
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Implement Basic Tweet and User Endpoints",
+        "description": "Develop essential tweet (post, get, delete) and user (get by ID, get by username) endpoints with type-safe request/response models.",
+        "details": "In src/endpoints/tweets.rs and src/endpoints/users.rs, implement post_tweet, delete_tweet, get_tweet, get_user, get_user_by_username. Use strongly-typed request/response models and builder patterns for requests. Integrate with XClient, AuthProvider, and HttpClient. Handle errors and map responses to models. Support field expansion and query parameter building.",
+        "testStrategy": "Integration tests with mock server for all endpoint methods; unit tests for request construction and response parsing.",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Tweet Endpoints (post, get, delete)",
+            "description": "Develop the core tweet endpoints: post_tweet, get_tweet, and delete_tweet in src/endpoints/tweets.rs.",
+            "dependencies": [],
+            "details": "Define handler functions for posting, retrieving, and deleting tweets. Ensure each endpoint uses type-safe request and response models, integrates with XClient, AuthProvider, and HttpClient, and follows builder patterns for request construction.",
+            "status": "pending",
+            "testStrategy": "Unit tests for each handler; integration tests with mock server for endpoint behavior."
+          },
+          {
+            "id": 2,
+            "title": "Implement User Endpoints (get by ID, get by username)",
+            "description": "Develop user endpoints: get_user (by ID) and get_user_by_username in src/endpoints/users.rs.",
+            "dependencies": [],
+            "details": "Create handler functions for fetching users by ID and by username. Use strongly-typed models and builder patterns. Integrate with XClient, AuthProvider, and HttpClient as required.",
+            "status": "pending",
+            "testStrategy": "Unit tests for request/response; integration tests for user retrieval scenarios."
+          },
+          {
+            "id": 3,
+            "title": "Integrate Type-Safe Request/Response Models and Builder Patterns",
+            "description": "Ensure all endpoints use strongly-typed request and response models and builder patterns for request construction.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Define and apply Rust structs for all request and response payloads. Implement builder patterns for flexible and safe request creation, ensuring type safety throughout the endpoint logic.",
+            "status": "pending",
+            "testStrategy": "Unit tests for model serialization/deserialization and builder correctness."
+          },
+          {
+            "id": 4,
+            "title": "Implement Error Handling and Response Mapping",
+            "description": "Add comprehensive error handling and map API responses to internal models for all endpoints.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Handle errors from HttpClient, authentication, and API responses. Map errors to appropriate Rust error types and ensure all responses are converted to the correct models, propagating errors as needed.",
+            "status": "pending",
+            "testStrategy": "Unit tests for error cases; integration tests for error propagation and mapping."
+          },
+          {
+            "id": 5,
+            "title": "Support Field Expansion and Query Parameter Building",
+            "description": "Implement support for field expansion and dynamic query parameter construction in all endpoints.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Allow clients to specify which fields to expand in responses and build query parameters accordingly. Ensure builder patterns support these options and that requests are constructed with the correct parameters.",
+            "status": "pending",
+            "testStrategy": "Unit tests for query parameter logic; integration tests verifying expanded fields in responses."
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Implement Rate Limit Tracker and Middleware",
+        "description": "Develop RateLimitTracker for per-endpoint state, header parsing, automatic waiting, and middleware integration.",
+        "details": "In src/rate_limit/, implement RateLimitTracker using governor (0.7+) with token bucket algorithm. Parse x-rate-limit-* headers, update state, and enforce waiting before requests when limits are approached. Integrate as middleware in XClient. Provide event callbacks for rate limit events and support both app-level and user-level limits.",
+        "testStrategy": "Unit tests for header parsing, state updates, and waiting logic; integration tests simulating rate limit scenarios.",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and Implement RateLimitTracker Struct and State Management",
+            "description": "Create the RateLimitTracker struct to manage per-endpoint rate limit state using the token bucket algorithm.",
+            "dependencies": [],
+            "details": "Define the RateLimitTracker struct in src/rate_limit/ with fields for token bucket state (capacity, rate, tokens, last refill, mutex for concurrency). Use governor (0.7+) for token bucket logic. Ensure thread safety and support for both app-level and user-level buckets.",
+            "status": "pending",
+            "testStrategy": "Unit tests for correct state initialization, token consumption, and concurrent access."
+          },
+          {
+            "id": 2,
+            "title": "Implement Header Parsing Logic for x-rate-limit-* Headers",
+            "description": "Develop logic to parse x-rate-limit-* headers and update the RateLimitTracker state accordingly.",
+            "dependencies": [
+              1
+            ],
+            "details": "Write functions to extract rate limit information (limit, remaining, reset) from x-rate-limit-* headers in HTTP responses. Update the corresponding RateLimitTracker state for each endpoint and user/app context.",
+            "status": "pending",
+            "testStrategy": "Unit tests with various header formats and edge cases; verify correct state updates."
+          },
+          {
+            "id": 3,
+            "title": "Implement Automatic Waiting and Enforcement Before Requests",
+            "description": "Enforce waiting or blocking before requests when rate limits are approached or exceeded.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Integrate logic to check token availability before making requests. If tokens are insufficient, wait until tokens are refilled according to the token bucket algorithm. Ensure this works for both app-level and user-level limits.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests simulating burst and steady traffic; verify correct waiting and enforcement."
+          },
+          {
+            "id": 4,
+            "title": "Integrate RateLimitTracker as Middleware in XClient",
+            "description": "Integrate the RateLimitTracker into XClient as middleware to intercept and manage outgoing requests.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Implement middleware hooks in XClient to invoke RateLimitTracker logic before each request. Ensure seamless integration and minimal performance overhead. Support per-endpoint and per-user/app tracking.",
+            "status": "pending",
+            "testStrategy": "Integration tests with XClient making requests under various rate limit scenarios."
+          },
+          {
+            "id": 5,
+            "title": "Add Event Callbacks and Multi-Level Limit Support",
+            "description": "Provide event callbacks for rate limit events and support both app-level and user-level rate limits.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Implement callback registration for rate limit events (e.g., approaching/exceeding limits, waiting). Ensure RateLimitTracker can handle both app-level and user-level limits, invoking appropriate callbacks for each context.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests for event triggering and correct handling of multi-level limits."
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Implement Exponential Backoff Retry Logic",
+        "description": "Integrate backoff crate for retrying transient errors, with configurable policies and error classification.",
+        "details": "In src/retry/, use backoff (0.4+) to implement retry logic. Classify errors as retryable or permanent using XApiError. Support exponential backoff with jitter, max attempts, and deduplication. Provide hooks for custom retry policies and detailed logging. Integrate as middleware in XClient.",
+        "testStrategy": "Unit tests for retry classification and backoff timing; integration tests with simulated network and 5xx errors.",
+        "priority": "high",
+        "dependencies": [
+          8
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Error Classification and Mapping with XApiError",
+            "description": "Develop logic to classify errors as retryable or permanent using the XApiError type, ensuring only transient errors are retried.",
+            "dependencies": [],
+            "details": "Define clear criteria for retryable vs. permanent errors in XApiError. Implement mapping functions or traits to support this classification. Ensure integration points for the retry logic to query error type.",
+            "status": "pending",
+            "testStrategy": "Unit tests for error classification logic, covering all error variants and edge cases."
+          },
+          {
+            "id": 2,
+            "title": "Configure Exponential Backoff Policy with Jitter and Max Attempts",
+            "description": "Set up the backoff crate to use exponential backoff with jitter, configurable maximum attempts, and deduplication support.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use backoff (0.4+) to configure ExponentialBackoff with jitter and max attempts. Expose configuration options for these parameters. Ensure deduplication logic prevents duplicate retries for the same operation.",
+            "status": "pending",
+            "testStrategy": "Unit tests for backoff timing, jitter randomness, and enforcement of max attempts."
+          },
+          {
+            "id": 3,
+            "title": "Integrate Retry Logic as Middleware in XClient",
+            "description": "Embed the retry logic as middleware within XClient, ensuring all relevant operations benefit from automatic retries.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement middleware pattern in XClient to wrap requests with retry logic. Ensure seamless propagation of classified errors and backoff policy. Validate that retryable errors trigger retries and permanent errors do not.",
+            "status": "pending",
+            "testStrategy": "Integration tests with simulated transient and permanent errors, verifying correct retry behavior."
+          },
+          {
+            "id": 4,
+            "title": "Provide Hooks for Custom Retry Policies and Detailed Logging",
+            "description": "Expose extension points for custom retry policies and integrate detailed logging for all retry attempts and outcomes.",
+            "dependencies": [
+              3
+            ],
+            "details": "Design and implement hooks or traits for injecting custom retry policies. Integrate structured logging to capture retry attempts, backoff intervals, and error details. Document extension points for users.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests for custom policy injection and log output verification."
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Implement Cursor-Based Pagination and PaginatedStream",
+        "description": "Develop PaginationParams, PaginatedStream, and automatic next-page fetching for timeline and search endpoints.",
+        "details": "In src/pagination/, implement PaginationParams and PaginatedStream<T> as per PRD. Support automatic fetching of next pages using pagination_token from meta. Integrate with timeline and search endpoints. Ensure async streaming with tokio-stream and async-stream. Handle partial failures gracefully.",
+        "testStrategy": "Integration tests for paginated endpoints with mock server; property tests for pagination edge cases.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and Implement PaginationParams Struct with Validation",
+            "description": "Define the PaginationParams struct to encapsulate cursor-based pagination parameters and implement validation logic.",
+            "dependencies": [],
+            "details": "Create PaginationParams in src/pagination/ to represent parameters such as limit, pagination_token, and any additional cursor fields. Implement validation to ensure parameters are within allowed ranges and formats, as per PRD requirements.",
+            "status": "pending",
+            "testStrategy": "Unit tests for parameter validation, including edge cases and invalid input scenarios."
+          },
+          {
+            "id": 2,
+            "title": "Develop PaginatedStream<T> for Async Streaming",
+            "description": "Implement the PaginatedStream<T> abstraction to provide async streaming of paginated results using tokio-stream and async-stream.",
+            "dependencies": [
+              1
+            ],
+            "details": "In src/pagination/, implement PaginatedStream<T> that yields items from paginated endpoints. Ensure compatibility with tokio-stream and async-stream for efficient async iteration. Support generic item types and proper stream termination.",
+            "status": "pending",
+            "testStrategy": "Unit tests for stream behavior, including correct item yielding and stream completion."
+          },
+          {
+            "id": 3,
+            "title": "Implement Automatic Next-Page Fetching Logic",
+            "description": "Add logic to PaginatedStream<T> to automatically fetch the next page using the pagination_token from response metadata.",
+            "dependencies": [
+              2
+            ],
+            "details": "Within PaginatedStream<T>, detect when more pages are available via pagination_token in the response meta. Fetch subsequent pages automatically and handle cases where the token is missing or invalid. Ensure robust error handling for partial failures.",
+            "status": "pending",
+            "testStrategy": "Integration tests with mocked paginated endpoints to verify correct next-page fetching and error handling."
+          },
+          {
+            "id": 4,
+            "title": "Integrate Pagination with Timeline/Search Endpoints and Handle Errors",
+            "description": "Integrate PaginatedStream<T> and PaginationParams with timeline and search endpoints, ensuring graceful handling of partial failures.",
+            "dependencies": [
+              3
+            ],
+            "details": "Update timeline and search endpoint implementations to use PaginatedStream<T> and accept PaginationParams. Ensure that errors (including partial failures) are surfaced appropriately and do not break the stream. Provide comprehensive logging and error mapping as per PRD.",
+            "status": "pending",
+            "testStrategy": "End-to-end integration tests with timeline and search endpoints, simulating partial failures and verifying error propagation."
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Implement OAuth 2.0 Bearer and PKCE Providers",
+        "description": "Develop OAuth2BearerProvider and OAuth2PKCEProvider, supporting token refresh and scope management.",
+        "details": "In src/auth/oauth2.rs, use oauth2 crate (0.4+) to implement both providers. Support automatic token refresh, scope selection, and endpoint compatibility checks. Integrate with XClient builder and AuthProvider trait. Ensure secure token storage and refresh flow.",
+        "testStrategy": "Unit tests for token refresh and scope management; integration tests for endpoints requiring OAuth 2.0.",
+        "priority": "medium",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement OAuth2BearerProvider in src/auth/oauth2.rs",
+            "description": "Develop the OAuth2BearerProvider using the oauth2 crate, supporting basic bearer token acquisition and integration.",
+            "dependencies": [],
+            "details": "Use the oauth2 crate (0.4+) to implement OAuth2BearerProvider. Ensure it can acquire and use bearer tokens for authentication. Integrate with the AuthProvider trait and XClient builder. Handle configuration for endpoints and scopes.",
+            "status": "pending",
+            "testStrategy": "Unit tests for token acquisition and AuthProvider trait compliance; integration tests for endpoints requiring bearer authentication."
+          },
+          {
+            "id": 2,
+            "title": "Implement OAuth2PKCEProvider with PKCE flow support",
+            "description": "Develop OAuth2PKCEProvider using the oauth2 crate, implementing the PKCE flow for secure token exchange.",
+            "dependencies": [
+              1
+            ],
+            "details": "Extend src/auth/oauth2.rs to implement OAuth2PKCEProvider. Use the oauth2 crate's PKCE support to handle code verifier/challenge, authorization code exchange, and token retrieval. Integrate with AuthProvider trait and XClient builder.",
+            "status": "pending",
+            "testStrategy": "Unit tests for PKCE flow (code challenge, verifier, token exchange); integration tests for endpoints requiring PKCE authentication."
+          },
+          {
+            "id": 3,
+            "title": "Implement token refresh and scope management logic",
+            "description": "Add automatic token refresh and dynamic scope selection for both providers, ensuring tokens remain valid and scopes are configurable.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement logic to automatically refresh access tokens using refresh tokens when expired. Allow dynamic scope selection during provider initialization. Ensure both OAuth2BearerProvider and OAuth2PKCEProvider support these features.",
+            "status": "pending",
+            "testStrategy": "Unit tests for token refresh scenarios and scope selection; property tests for edge cases (expired tokens, missing scopes)."
+          },
+          {
+            "id": 4,
+            "title": "Implement endpoint compatibility checks for providers",
+            "description": "Ensure both providers can validate endpoint compatibility and handle endpoint-specific requirements.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Add logic to check endpoint compatibility (e.g., required scopes, supported authentication methods) before making requests. Integrate checks into provider initialization and request flow. Provide error handling for incompatible endpoints.",
+            "status": "pending",
+            "testStrategy": "Unit tests for endpoint compatibility logic; integration tests with endpoints requiring specific scopes or authentication methods."
+          },
+          {
+            "id": 5,
+            "title": "Implement secure token storage and provider integration",
+            "description": "Ensure secure storage of tokens and integrate providers with XClient and AuthProvider trait.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Implement secure token storage using appropriate Rust mechanisms (e.g., encrypted files, in-memory with access controls). Integrate both providers with XClient builder and AuthProvider trait. Ensure refresh flow and token access are secure and thread-safe.",
+            "status": "pending",
+            "testStrategy": "Unit tests for secure token storage and retrieval; integration tests for provider usage in XClient; security review for token handling."
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Implement Complete Endpoint Coverage",
+        "description": "Develop all remaining endpoints: tweets (likes, retweets, etc.), users (follows, blocks, mutes), lists, spaces, direct messages, compliance.",
+        "details": "In src/endpoints/, implement all endpoints as specified in the PRD. Use builder patterns for complex requests, support all field expansions, and ensure type safety. Integrate with pagination, rate limiting, and retry logic. Provide comprehensive error handling and response mapping.",
+        "testStrategy": "Integration tests for each endpoint with mock server; unit tests for request/response models.",
+        "priority": "medium",
+        "dependencies": [
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Tweets Endpoints (Likes, Retweets, etc.)",
+            "description": "Develop endpoints for tweet-related actions including posting, liking, retweeting, and retrieving tweets as specified in the PRD.",
+            "dependencies": [],
+            "details": "Create handlers in src/endpoints/tweets/ for all tweet actions. Ensure support for field expansions, pagination, and rate limiting. Use builder patterns for complex requests and enforce type safety.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests for each tweet action using mock server; verify correct request/response mapping and error handling."
+          },
+          {
+            "id": 2,
+            "title": "Implement Users Endpoints (Follows, Blocks, Mutes)",
+            "description": "Develop endpoints for user interactions such as follow, unfollow, block, unblock, mute, and unmute.",
+            "dependencies": [],
+            "details": "Implement endpoints in src/endpoints/users/ for all user interaction actions. Integrate with pagination and rate limiting. Ensure builder pattern usage and type safety.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests for user interaction endpoints; validate correct state changes and error scenarios."
+          },
+          {
+            "id": 3,
+            "title": "Implement Lists Endpoints",
+            "description": "Develop endpoints for managing lists, including creation, updating, deletion, and membership management.",
+            "dependencies": [],
+            "details": "Add endpoints in src/endpoints/lists/ for all list operations. Support field expansions, pagination, and rate limiting. Use builder patterns for complex list requests.",
+            "status": "pending",
+            "testStrategy": "Integration tests for list management workflows; unit tests for request/response models and error handling."
+          },
+          {
+            "id": 4,
+            "title": "Implement Spaces Endpoints",
+            "description": "Develop endpoints for managing Spaces, including creation, retrieval, and participation.",
+            "dependencies": [],
+            "details": "Implement endpoints in src/endpoints/spaces/ as per PRD. Ensure support for all required fields, expansions, and pagination. Apply builder patterns and type safety.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests for Spaces endpoints; verify correct handling of all request types and error conditions."
+          },
+          {
+            "id": 5,
+            "title": "Implement Direct Messages Endpoints",
+            "description": "Develop endpoints for sending, receiving, and managing direct messages.",
+            "dependencies": [],
+            "details": "Create endpoints in src/endpoints/direct_messages/ for all DM operations. Integrate with rate limiting, pagination, and ensure secure handling of message data.",
+            "status": "pending",
+            "testStrategy": "Integration tests for DM send/receive flows; unit tests for message parsing and error handling."
+          },
+          {
+            "id": 6,
+            "title": "Implement Compliance Endpoints",
+            "description": "Develop endpoints for compliance-related operations, such as retrieving compliance jobs and status.",
+            "dependencies": [],
+            "details": "Add endpoints in src/endpoints/compliance/ for all compliance operations. Ensure correct mapping of request/response models and integration with retry logic.",
+            "status": "pending",
+            "testStrategy": "Unit and integration tests for compliance endpoints; validate correct job status retrieval and error scenarios."
+          },
+          {
+            "id": 7,
+            "title": "Integrate Builder Pattern and Field Expansion Support",
+            "description": "Ensure all endpoints use builder patterns for complex requests and support all field expansions as specified in the PRD.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "details": "Refactor endpoint implementations to use builder patterns where appropriate. Implement field expansion logic for all endpoints, ensuring type safety and extensibility.",
+            "status": "pending",
+            "testStrategy": "Unit tests for builder pattern correctness; integration tests to verify field expansion behavior across endpoints."
+          },
+          {
+            "id": 8,
+            "title": "Implement Comprehensive Error Handling and Response Mapping",
+            "description": "Provide robust error handling and map all responses to strongly typed models for all endpoints.",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "details": "Implement error handling middleware and response mapping utilities. Ensure all endpoints return consistent, typed errors and responses. Integrate with retry and rate limiting logic.",
+            "status": "pending",
+            "testStrategy": "Unit tests for error classification and mapping; integration tests to verify error propagation and response consistency."
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Implement Streaming Infrastructure and Filtered Stream",
+        "description": "Develop streaming connection management, filtered stream, rule management, heartbeat monitoring, and reconnection logic.",
+        "details": "In src/streaming/, implement FilteredStream, SampleStream, and rule management as per PRD. Use async-stream for Stream trait. Support automatic reconnection with exponential backoff, heartbeat monitoring (90s timeout), backfill on reconnection, and duplicate message detection. Integrate with XClient and provide event hooks.",
+        "testStrategy": "Integration tests with mock streaming server; unit tests for reconnection and heartbeat logic; property tests for message parsing.",
+        "priority": "medium",
+        "dependencies": [
+          12
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Streaming Connection Management",
+            "description": "Develop robust connection management for streaming, including connection establishment, error handling, and resource cleanup.",
+            "dependencies": [],
+            "details": "Create connection handlers in src/streaming/ that manage lifecycle events, handle errors gracefully, and ensure proper resource allocation and cleanup. Integrate with async-stream for efficient async operations. Design for scalability and fault tolerance.",
+            "status": "pending",
+            "testStrategy": "Unit tests for connection lifecycle; integration tests simulating connection failures and resource leaks."
+          },
+          {
+            "id": 2,
+            "title": "Develop FilteredStream and SampleStream Implementations",
+            "description": "Implement FilteredStream and SampleStream classes supporting rule-based filtering and sample streaming as per PRD.",
+            "dependencies": [
+              1
+            ],
+            "details": "In src/streaming/, implement FilteredStream and SampleStream using async-stream and Stream trait. Ensure rule-based filtering logic is efficient and supports dynamic updates. Provide sample streaming with configurable parameters.",
+            "status": "pending",
+            "testStrategy": "Unit tests for filtering logic and sample stream output; property tests for rule application."
+          },
+          {
+            "id": 3,
+            "title": "Implement Rule Management System",
+            "description": "Design and implement rule management for filtered streams, supporting add, remove, and update operations.",
+            "dependencies": [
+              2
+            ],
+            "details": "Create rule management modules that allow dynamic rule changes, validation, and persistence. Ensure thread safety and efficient rule evaluation. Integrate rule management with FilteredStream.",
+            "status": "pending",
+            "testStrategy": "Unit tests for rule CRUD operations; integration tests for rule updates during active streaming."
+          },
+          {
+            "id": 4,
+            "title": "Implement Heartbeat Monitoring and Automatic Reconnection Logic",
+            "description": "Add heartbeat monitoring (90s timeout) and automatic reconnection with exponential backoff to maintain stream reliability.",
+            "dependencies": [
+              1
+            ],
+            "details": "Monitor heartbeats from the streaming server and trigger reconnection using exponential backoff on timeout or connection loss. Ensure reconnection logic is robust and avoids thundering herd problems.",
+            "status": "pending",
+            "testStrategy": "Unit tests for heartbeat timeout detection; integration tests for reconnection under simulated network failures."
+          },
+          {
+            "id": 5,
+            "title": "Implement Backfill on Reconnection and Duplicate Message Detection",
+            "description": "Support backfilling missed messages after reconnection and detect duplicate messages to ensure data integrity.",
+            "dependencies": [
+              4
+            ],
+            "details": "On reconnection, request and process backfill data to recover missed messages. Implement duplicate detection using message IDs or hashes. Ensure seamless integration with streaming pipeline.",
+            "status": "pending",
+            "testStrategy": "Property tests for duplicate detection; integration tests for backfill correctness after reconnection."
+          },
+          {
+            "id": 6,
+            "title": "Integrate Event Hooks and XClient for Streaming Events",
+            "description": "Provide event hooks for streaming events and integrate with XClient for external interaction and monitoring.",
+            "dependencies": [
+              2,
+              4,
+              5
+            ],
+            "details": "Expose event hooks for connection, message, error, and reconnection events. Integrate with XClient to allow external modules to subscribe and react to streaming events. Ensure extensibility and thread safety.",
+            "status": "pending",
+            "testStrategy": "Integration tests for event hook invocation; unit tests for event propagation and XClient interaction."
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Implement Streaming Reliability Features",
+        "description": "Add recovery streams, redundant connections, stream health monitoring, and persistent queue for critical messages.",
+        "details": "Enhance streaming infrastructure to support recovery streams for extended outages, redundant connections for high availability, and persistent queueing for critical messages. Implement stream health monitoring and comprehensive reconnection event logging.",
+        "testStrategy": "Integration tests simulating network failures and recovery; unit tests for duplicate detection and health monitoring.",
+        "priority": "medium",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Recovery Streams and Persistent Queueing",
+            "description": "Develop mechanisms for recovery streams to handle extended outages and ensure critical messages are queued persistently for reliable delivery.",
+            "dependencies": [],
+            "details": "Design and implement logic to resume streams from the last known good position after a failure, using checkpointing or offset tracking as appropriate. Integrate a persistent queue (e.g., disk-backed or database-backed) for critical messages to guarantee delivery even during outages. Ensure the system can recover from both transient and permanent failures, supporting strategies such as replay from checkpoints or backfill as needed.",
+            "status": "pending",
+            "testStrategy": "Simulate stream interruptions and verify recovery from checkpoints; test message delivery guarantees under failure and recovery scenarios."
+          },
+          {
+            "id": 2,
+            "title": "Add Redundant Connection Management for High Availability",
+            "description": "Establish and manage redundant streaming connections to minimize downtime and support seamless failover.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement logic to maintain multiple active or standby connections to streaming sources. Automatically detect connection failures and switch to redundant connections with minimal disruption. Ensure that state and offsets are synchronized across connections to prevent data loss or duplication. Provide configuration options for redundancy levels and failover policies.",
+            "status": "pending",
+            "testStrategy": "Induce connection failures and verify automatic failover to redundant connections without data loss or duplication."
+          },
+          {
+            "id": 3,
+            "title": "Implement Stream Health Monitoring and Reconnection Logging",
+            "description": "Monitor the health of streaming connections and log all reconnection events for observability and troubleshooting.",
+            "dependencies": [
+              2
+            ],
+            "details": "Develop health checks for streaming connections, including heartbeat monitoring and latency tracking. Trigger alerts or automated recovery actions on health check failures. Log all reconnection attempts, including timestamps, causes, and outcomes, to support diagnostics and compliance. Integrate monitoring with existing observability tools if available.",
+            "status": "pending",
+            "testStrategy": "Test health monitoring by simulating degraded and failed connections; verify that reconnection events are logged and alerts are triggered as expected."
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Implement Bot-Oriented Helpers (MentionMonitor, TweetScheduler, ConversationTracker)",
+        "description": "Develop high-level abstractions for mention monitoring, scheduled posting, and conversation tracking.",
+        "details": "In src/builder/ and src/streaming/, implement MentionMonitor with LRU cache for duplicate detection, TweetScheduler using tokio-cron-scheduler for cron-based posting, and ConversationTracker with Arc<RwLock<>> for state management. Provide ergonomic APIs for bot developers and integrate with core client.",
+        "testStrategy": "Unit and integration tests for each helper; simulate real bot flows and verify correct operation and state management.",
+        "priority": "medium",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement MentionMonitor with LRU Cache for Duplicate Detection",
+            "description": "Develop the MentionMonitor helper to efficiently track and filter duplicate mentions using an LRU cache.",
+            "dependencies": [],
+            "details": "Create MentionMonitor in src/builder/ or src/streaming/. Use an LRU cache to store recent mention IDs and filter out duplicates. Design ergonomic APIs for bot developers to query and update mention state. Integrate MentionMonitor with the core client for real-time mention monitoring.",
+            "status": "pending",
+            "testStrategy": "Unit tests for cache eviction and duplicate detection; integration tests simulating mention streams."
+          },
+          {
+            "id": 2,
+            "title": "Implement TweetScheduler Using tokio-cron-scheduler for Scheduled Posting",
+            "description": "Develop TweetScheduler to enable cron-based scheduling of tweets using tokio-cron-scheduler.",
+            "dependencies": [],
+            "details": "In src/builder/, implement TweetScheduler leveraging tokio-cron-scheduler to allow bots to schedule tweets at specific times or intervals. Provide APIs for adding, removing, and listing scheduled jobs. Ensure thread safety and proper error handling. Integrate with the core client for posting tweets on schedule.",
+            "status": "pending",
+            "testStrategy": "Unit tests for job scheduling and execution; integration tests with simulated posting and cron expressions[1][2][3]."
+          },
+          {
+            "id": 3,
+            "title": "Implement ConversationTracker with Arc<RwLock<>> for State Management",
+            "description": "Develop ConversationTracker to manage and track ongoing bot conversations using thread-safe state.",
+            "dependencies": [],
+            "details": "Create ConversationTracker in src/builder/ or src/streaming/. Use Arc<RwLock<>> to maintain conversation state across threads. Design APIs for starting, updating, and querying conversations. Ensure integration with the core client and ergonomic usage for bot developers.",
+            "status": "pending",
+            "testStrategy": "Unit tests for state consistency and concurrency; integration tests simulating multi-threaded conversation flows."
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Implement Production-Grade Features (Logging, Metrics, Circuit Breaker, Caching)",
+        "description": "Add tracing-based logging, Prometheus-compatible metrics, circuit breaker for failing endpoints, and caching for frequently accessed data.",
+        "details": "Integrate tracing crate for structured logging, expose metrics via Prometheus exporter, implement circuit breaker pattern for endpoints with repeated failures, and add caching layer using HashMap or LRU for hot data. Provide health check endpoints and graceful shutdown for streams.",
+        "testStrategy": "Integration tests for logging and metrics; unit tests for circuit breaker and caching logic; simulate endpoint failures.",
+        "priority": "medium",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integrate Tracing-Based Structured Logging",
+            "description": "Set up structured logging using the tracing crate to capture detailed, context-rich logs throughout the application.",
+            "dependencies": [],
+            "details": "Add the tracing crate as a dependency. Configure global subscriber with appropriate log levels and formatting. Instrument key code paths (API endpoints, error handlers, background tasks) with spans and events. Ensure logs include request IDs and error contexts for traceability. Provide configuration for log level and output destination (stdout, file, etc.).",
+            "status": "pending",
+            "testStrategy": "Run integration tests to verify logs are emitted for key operations and errors. Check log output for correct structure, context, and trace propagation."
+          },
+          {
+            "id": 2,
+            "title": "Expose Prometheus-Compatible Metrics Endpoint",
+            "description": "Implement a Prometheus metrics exporter to expose application metrics via an HTTP endpoint for monitoring and alerting.",
+            "dependencies": [],
+            "details": "Use the metrics and metrics-exporter-prometheus crates to instrument code with counters, gauges, and histograms. Configure PrometheusBuilder to expose a /metrics HTTP endpoint. Instrument endpoints and background tasks to record request counts, latencies, and error rates. Ensure metrics naming follows Prometheus conventions and labels are sanitized as required by the exporter[1][6].",
+            "status": "pending",
+            "testStrategy": "Use Prometheus to scrape the /metrics endpoint and verify metrics are exposed and updated correctly. Write integration tests to simulate traffic and check metric values."
+          },
+          {
+            "id": 3,
+            "title": "Implement Circuit Breaker and Caching Layers",
+            "description": "Add a circuit breaker for failing endpoints and a caching layer for frequently accessed data to improve reliability and performance.",
+            "dependencies": [],
+            "details": "Implement the circuit breaker pattern for external API calls or endpoints with repeated failures, using a state machine (closed, open, half-open) and configurable thresholds. Integrate a caching layer using HashMap or LRU cache for hot data, with configurable TTL and eviction policy. Ensure thread safety and minimal locking. Provide health check endpoints and support graceful shutdown for streams.",
+            "status": "pending",
+            "testStrategy": "Write unit tests for circuit breaker state transitions and cache hit/miss logic. Simulate endpoint failures to verify circuit breaker behavior. Use integration tests to confirm caching improves response times and reduces load."
+          }
+        ]
+      },
+      {
+        "id": 17,
+        "title": "Write Comprehensive Documentation and Developer Guides",
+        "description": "Document all APIs with rustdoc, provide usage examples, migration guides, and best practices for bot development.",
+        "details": "Use rustdoc comments for all public APIs, generate API documentation, and write guides covering error handling, rate limit management, streaming reliability, and migration from other libraries. Include a bot development cookbook and CLI tools for testing.",
+        "testStrategy": "cargo doc build verification; manual review of documentation coverage and clarity; user testing of guides.",
+        "priority": "medium",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Document All Public APIs with Rustdoc and Ensure Coverage",
+            "description": "Write comprehensive rustdoc comments for every public module, struct, enum, trait, function, and method, including clear descriptions, parameter/return value explanations, and code examples.",
+            "dependencies": [],
+            "details": "Apply rustdoc comments (///) to all public items. Use #[warn(missing_docs)] or #[deny(missing_docs)] at the crate root to enforce documentation coverage. Include at least one usage example per item, document error cases, and use #[doc = include_str!()] for shared content. Run cargo doc and review output for completeness and clarity. Consider CI checks for documentation coverage and quality.",
+            "status": "pending",
+            "testStrategy": "Run cargo doc with warnings as errors; manual review for completeness and clarity; check for missing_docs warnings."
+          },
+          {
+            "id": 2,
+            "title": "Write Developer Guides: Usage, Migration, and Best Practices",
+            "description": "Create standalone Markdown guides covering getting started, usage examples, migration from other libraries, error handling, rate limit management, streaming reliability, and best practices for bot development.",
+            "dependencies": [
+              1
+            ],
+            "details": "Organize guides in a /docs directory. Use mdBook or include_str! to integrate guides with API docs. Each guide should have code samples, explanations, and troubleshooting tips. Cover migration steps from popular libraries, error handling strategies, rate limit and streaming reliability techniques, and recommended patterns for bot development. Link guides from crate-level documentation and README.",
+            "status": "pending",
+            "testStrategy": "Manual review for completeness and clarity; user testing by following guides to implement common tasks; check for broken links and code sample accuracy."
+          },
+          {
+            "id": 3,
+            "title": "Develop a Bot Development Cookbook and CLI Testing Tools Documentation",
+            "description": "Provide a cookbook of practical bot development recipes and document CLI tools for testing and debugging, including example workflows and troubleshooting.",
+            "dependencies": [
+              2
+            ],
+            "details": "Create a cookbook section with real-world bot recipes (e.g., message handling, error recovery, rate limit adaptation). Document CLI tools with usage instructions, example commands, and output interpretation. Ensure all recipes and CLI docs are accessible from the main documentation hub and cross-referenced in relevant guides.",
+            "status": "pending",
+            "testStrategy": "Manual walkthrough of cookbook recipes and CLI tool instructions; user feedback on clarity and usefulness; verify all examples run as described."
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-10-23T17:33:28.107Z",
+      "updated": "2025-10-23T17:33:28.107Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

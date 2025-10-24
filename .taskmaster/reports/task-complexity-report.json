@@ -1,0 +1,149 @@
+{
+	"meta": {
+		"generatedAt": "2025-10-23T17:34:35.567Z",
+		"tasksAnalyzed": 17,
+		"totalTasks": 17,
+		"analysisCount": 17,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Set Up Crate Structure and Core Dependencies",
+			"complexityScore": 4,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down the crate setup into: (1) directory and module structure, (2) dependency addition and feature configuration, (3) MSRV enforcement and documentation, (4) workspace and feature flag setup.",
+			"reasoning": "This task is foundational but follows well-established Rust best practices for crate layout, dependency management, and MSRV enforcement[1][2][3]. The main complexity arises from ensuring all dependencies are correctly configured with features and optional components, and that CI enforces MSRV. The effort is moderate, with minimal technical risk, but benefits from clear subtask separation for maintainability and CI integration."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Implement OAuth 1.0a Authentication Provider",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Decompose into: (1) trait definition and integration, (2) signature generation logic, (3) header injection and endpoint compatibility, (4) error handling and unit tests, (5) builder pattern integration.",
+			"reasoning": "OAuth 1.0a is a mature protocol, but correct signature generation and header injection require careful implementation and testing. Integration with the AuthProvider trait and XClient builder adds complexity, especially for endpoint compatibility checks and error handling. The use of the oauth1 crate mitigates some risk, but thorough testing is needed to ensure security and correctness."
+		},
+		{
+			"taskId": 12,
+			"taskTitle": "Implement Complete Endpoint Coverage",
+			"complexityScore": 8,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Expand into subtasks for each endpoint group: (1) tweets (likes, retweets, etc.), (2) users (follows, blocks, mutes), (3) lists, (4) spaces, (5) direct messages, (6) compliance, (7) builder pattern and field expansion support, (8) error handling and response mapping.",
+			"reasoning": "This task is highly complex due to the breadth of endpoints, each with unique request/response models, field expansions, and error handling requirements. Integration with pagination, rate limiting, and retry logic increases technical dependencies and testing scope. Industry standards dictate strong type safety and comprehensive test coverage, making modular expansion essential."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Implement Cursor-Based Pagination and PaginatedStream",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Divide into: (1) PaginationParams struct and validation, (2) PaginatedStream<T> implementation, (3) next-page fetching logic, (4) integration with timeline/search endpoints and error handling.",
+			"reasoning": "Cursor-based pagination is a common pattern, but implementing a robust PaginatedStream with async streaming and error handling requires careful design. Integration with endpoints and handling partial failures add moderate complexity, especially for edge cases and test coverage."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Implement Exponential Backoff Retry Logic",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Split into: (1) error classification and mapping, (2) backoff policy configuration (jitter, max attempts), (3) middleware integration with XClient, (4) hooks for custom policies and logging.",
+			"reasoning": "Retry logic using the backoff crate is standard, but correct error classification and integration as middleware require attention to detail. Configurable policies and hooks for extensibility add some complexity, but the implementation pattern is well-established in Rust and other languages."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Implement Rate Limit Tracker and Middleware",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down into: (1) RateLimitTracker struct and state management, (2) header parsing logic, (3) waiting/enforcement before requests, (4) middleware integration with XClient, (5) event callbacks and multi-level limit support.",
+			"reasoning": "Rate limiting is critical for API reliability and compliance. Implementing per-endpoint state, header parsing, and automatic waiting involves concurrency and state management challenges. Middleware integration and event callbacks add to the complexity, especially for supporting both app-level and user-level limits."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Implement Basic Tweet and User Endpoints",
+			"complexityScore": 5,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Expand into: (1) tweet endpoints (post, get, delete), (2) user endpoints (get by ID, get by username), (3) request/response model integration, (4) error handling and response mapping, (5) field expansion and query parameter support.",
+			"reasoning": "These endpoints are essential and follow established patterns for API client development. Complexity is moderate due to integration with XClient, AuthProvider, and HttpClient, and the need for type safety and error handling. Builder patterns and field expansion add some technical depth."
+		},
+		{
+			"taskId": 11,
+			"taskTitle": "Implement OAuth 2.0 Bearer and PKCE Providers",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Decompose into: (1) OAuth2BearerProvider implementation, (2) OAuth2PKCEProvider implementation, (3) token refresh and scope management, (4) endpoint compatibility checks, (5) secure token storage and integration.",
+			"reasoning": "OAuth 2.0 flows, especially PKCE, require careful handling of token refresh, scope management, and secure storage. Integration with XClient and AuthProvider trait, plus endpoint compatibility checks, add significant complexity. Security and correctness are paramount, necessitating thorough testing."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Implement XClient Struct and Builder Pattern",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break into: (1) XClient struct definition and generics, (2) builder pattern implementation, (3) configuration of auth, rate limiting, retry policy, timeouts, (4) async operation integration, (5) trait integration and method chaining.",
+			"reasoning": "The XClient struct is the core abstraction, and implementing a flexible builder pattern with support for multiple configuration options is moderately complex. Ensuring ergonomic API design and async compatibility per Rust guidelines[4][5] adds to the effort, especially with trait integration."
+		},
+		{
+			"taskId": 13,
+			"taskTitle": "Implement Streaming Infrastructure and Filtered Stream",
+			"complexityScore": 8,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Expand into: (1) streaming connection management, (2) filtered/sample stream implementation, (3) rule management, (4) heartbeat monitoring and reconnection logic, (5) backfill and duplicate detection, (6) event hooks and integration.",
+			"reasoning": "Streaming infrastructure is complex due to connection management, reconnection logic, heartbeat monitoring, and rule management. Handling backfill, duplicate detection, and providing event hooks requires robust async design and thorough testing, especially for reliability and edge cases."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Implement Core Data Models with Serde",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement core data models with serde.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Define Error Types and Error Handling Hierarchy",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on define error types and error handling hierarchy.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Implement HTTP Client Trait Abstraction",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement http client trait abstraction.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 14,
+			"taskTitle": "Implement Streaming Reliability Features",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement streaming reliability features.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 15,
+			"taskTitle": "Implement Bot-Oriented Helpers (MentionMonitor, TweetScheduler, ConversationTracker)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement bot-oriented helpers (mentionmonitor, tweetscheduler, conversationtracker).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 16,
+			"taskTitle": "Implement Production-Grade Features (Logging, Metrics, Circuit Breaker, Caching)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement production-grade features (logging, metrics, circuit breaker, caching).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 17,
+			"taskTitle": "Write Comprehensive Documentation and Developer Guides",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on write comprehensive documentation and developer guides.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		}
+	]
+}
