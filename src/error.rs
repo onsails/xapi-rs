@@ -92,27 +92,34 @@ pub enum Error {
 ///
 /// When the API returns an error response, it includes structured error details
 /// with error codes, messages, and context about what went wrong.
+///
+/// Fields are `pub(crate)` to support Serde deserialization while maintaining
+/// encapsulation. Use getter methods for external access.
 #[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[error("{message} (code: {code})")]
 #[non_exhaustive]
 pub struct ApiErrorDetail {
     /// CAPS_CASE error code from the API
-    code: String,
+    pub(crate) code: String,
 
     /// Human-readable error message
-    message: String,
+    pub(crate) message: String,
 
     /// The problematic parameter (if applicable)
-    parameter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) parameter: Option<String>,
 
     /// The problematic value (if applicable)
-    value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) value: Option<String>,
 
     /// Problem type URI (if provided)
-    type_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) type_uri: Option<String>,
 
     /// HTTP status code
-    status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) status: Option<u16>,
 }
 
 impl Error {
@@ -142,8 +149,9 @@ impl Error {
             // Timeouts are retryable
             Error::Timeout(_) => true,
 
-            // Invalid response might be transient
-            Error::InvalidResponse(_) => true,
+            // Invalid response (malformed JSON, etc.) is usually not retryable
+            // The API response format won't fix itself on retry
+            Error::InvalidResponse(_) => false,
 
             // API errors depend on status code
             Error::Api(detail) => {
@@ -182,8 +190,8 @@ impl Error {
                 if *reset_at > now {
                     (*reset_at - now).to_std().ok()
                 } else {
-                    // If reset time has passed, wait a small delay to avoid retry spam
-                    Some(std::time::Duration::from_secs(1))
+                    // If reset time has passed, the limit should be lifted - retry immediately
+                    Some(std::time::Duration::ZERO)
                 }
             }
             // For other retryable errors, use exponential backoff (return None)
@@ -430,5 +438,52 @@ mod tests {
         let err = Error::Authorization("Insufficient permissions".to_string());
         assert!(!err.is_retryable());
         assert!(err.is_auth_error());
+    }
+
+    #[test]
+    fn test_api_error_detail_deserialization() {
+        // Test that ApiErrorDetail can be deserialized from JSON (critical for API client)
+        let json = r#"{
+            "code": "RATE_LIMIT_EXCEEDED",
+            "message": "Too Many Requests",
+            "parameter": "max_results",
+            "value": "1000",
+            "type_uri": "https://api.twitter.com/2/problems/rate-limit-exceeded",
+            "status": 429
+        }"#;
+
+        let detail: ApiErrorDetail = serde_json::from_str(json).unwrap();
+        assert_eq!(detail.code(), "RATE_LIMIT_EXCEEDED");
+        assert_eq!(detail.message(), "Too Many Requests");
+        assert_eq!(detail.parameter(), Some("max_results"));
+        assert_eq!(detail.value(), Some("1000"));
+        assert_eq!(detail.status(), Some(429));
+
+        // Test roundtrip
+        let serialized = serde_json::to_string(&detail).unwrap();
+        let roundtrip: ApiErrorDetail = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(detail, roundtrip);
+    }
+
+    #[test]
+    fn test_api_error_detail_minimal_deserialization() {
+        // Test with only required fields
+        let json = r#"{
+            "code": "NOT_FOUND",
+            "message": "Resource not found"
+        }"#;
+
+        let detail: ApiErrorDetail = serde_json::from_str(json).unwrap();
+        assert_eq!(detail.code(), "NOT_FOUND");
+        assert_eq!(detail.message(), "Resource not found");
+        assert_eq!(detail.parameter(), None);
+        assert_eq!(detail.status(), None);
+    }
+
+    #[test]
+    fn test_invalid_response_not_retryable() {
+        // Test that malformed responses are not retryable
+        let err = Error::InvalidResponse("Malformed JSON".to_string());
+        assert!(!err.is_retryable());
     }
 }
