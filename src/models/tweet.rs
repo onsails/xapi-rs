@@ -294,6 +294,13 @@ pub struct EditControls {
     pub editable_until: DateTime<Utc>,
 }
 
+/// Response from deleting a tweet
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+pub struct DeleteResponse {
+    /// Whether the deletion was successful
+    pub deleted: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
