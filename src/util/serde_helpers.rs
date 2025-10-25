@@ -38,9 +38,7 @@ where
 }
 
 /// Deserialize an optional ID field that may be a string, number, or null
-pub fn deserialize_optional_flexible_id<'de, D>(
-    deserializer: D,
-) -> Result<Option<String>, D::Error>
+pub fn deserialize_optional_flexible_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -79,9 +77,7 @@ where
 }
 
 /// Deserialize an optional boolean that may be a string, bool, null, or missing
-pub fn deserialize_optional_flexible_bool<'de, D>(
-    deserializer: D,
-) -> Result<Option<bool>, D::Error>
+pub fn deserialize_optional_flexible_bool<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
 where
     D: Deserializer<'de>,
 {

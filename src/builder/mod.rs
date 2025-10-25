@@ -4,5 +4,5 @@
 //! - Request construction
 //! - Query parameter building
 
-pub mod request;
 pub mod query;
+pub mod request;

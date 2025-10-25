@@ -4,6 +4,8 @@
 
 use crate::auth::AuthProvider;
 use crate::error::Result;
+use crate::rate_limit::RateLimitConfig;
+use crate::retry::policy::RetryPolicy;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -91,7 +93,13 @@ pub struct Client<H: HttpClient + Clone = ReqwestClient> {
     /// Authentication provider for signing requests (Arc for cloneability)
     auth: Arc<dyn AuthProvider>,
 
-    /// Base URL for the X API (default: https://api.twitter.com)
+    /// Rate limiting configuration
+    rate_limit_config: RateLimitConfig,
+
+    /// Retry policy for failed requests
+    retry_policy: RetryPolicy,
+
+    /// Base URL for the X API (default: <https://api.twitter.com>)
     base_url: String,
 }
 
@@ -133,6 +141,8 @@ impl Client<ReqwestClient> {
         Ok(Self {
             http: ReqwestClient::new()?,
             auth: Arc::new(auth),
+            rate_limit_config: RateLimitConfig::default(),
+            retry_policy: RetryPolicy::default(),
             base_url: "https://api.twitter.com".to_string(),
         })
     }
@@ -174,6 +184,18 @@ impl<H: HttpClient + Clone> Client<H> {
     pub(crate) fn base_url(&self) -> &str {
         &self.base_url
     }
+
+    /// Get the rate limit configuration
+    #[allow(dead_code)] // Will be used by rate limit modules
+    pub(crate) fn rate_limit_config(&self) -> &RateLimitConfig {
+        &self.rate_limit_config
+    }
+
+    /// Get the retry policy
+    #[allow(dead_code)] // Will be used by retry modules
+    pub(crate) fn retry_policy(&self) -> &RetryPolicy {
+        &self.retry_policy
+    }
 }
 
 /// Builder for configuring and constructing a Client
@@ -183,6 +205,8 @@ impl<H: HttpClient + Clone> Client<H> {
 pub struct ClientBuilder<H: HttpClient + Clone = ReqwestClient> {
     http: Option<H>,
     auth: Option<Arc<dyn AuthProvider>>,
+    rate_limit_config: Option<RateLimitConfig>,
+    retry_policy: Option<RetryPolicy>,
     base_url: Option<String>,
     timeout: Option<std::time::Duration>,
 }
@@ -192,6 +216,8 @@ impl Default for ClientBuilder<ReqwestClient> {
         Self {
             http: None,
             auth: None,
+            rate_limit_config: None,
+            retry_policy: None,
             base_url: None,
             timeout: None,
         }
@@ -231,9 +257,25 @@ impl<H: HttpClient + Clone> ClientBuilder<H> {
 
     /// Set the base URL for the X API
     ///
-    /// Default: "https://api.twitter.com"
+    /// Default: `"https://api.twitter.com"`
     pub fn base_url(mut self, url: impl Into<String>) -> Self {
         self.base_url = Some(url.into());
+        self
+    }
+
+    /// Configure rate limiting behavior
+    ///
+    /// Default: Per-endpoint tracking enabled, auto-wait enabled
+    pub fn rate_limit(mut self, config: RateLimitConfig) -> Self {
+        self.rate_limit_config = Some(config);
+        self
+    }
+
+    /// Configure retry policy for failed requests
+    ///
+    /// Default: 3 retries with exponential backoff
+    pub fn retry_policy(mut self, policy: RetryPolicy) -> Self {
+        self.retry_policy = Some(policy);
         self
     }
 
@@ -273,9 +315,11 @@ impl ClientBuilder<ReqwestClient> {
     /// - HTTP client creation fails
     /// - Both timeout and custom HTTP client are configured (conflicting options)
     pub fn build(self) -> Result<Client<ReqwestClient>> {
-        let auth = self
-            .auth
-            .ok_or_else(|| crate::error::Error::Config("No authentication provider configured. Use .oauth1() or .auth()".to_string()))?;
+        let auth = self.auth.ok_or_else(|| {
+            crate::error::Error::Config(
+                "No authentication provider configured. Use .oauth1() or .auth()".to_string(),
+            )
+        })?;
 
         // Check for conflicting configuration
         if self.http.is_some() && self.timeout.is_some() {
@@ -295,7 +339,11 @@ impl ClientBuilder<ReqwestClient> {
         Ok(Client {
             http,
             auth,
-            base_url: self.base_url.unwrap_or_else(|| "https://api.twitter.com".to_string()),
+            rate_limit_config: self.rate_limit_config.unwrap_or_default(),
+            retry_policy: self.retry_policy.unwrap_or_default(),
+            base_url: self
+                .base_url
+                .unwrap_or_else(|| "https://api.twitter.com".to_string()),
         })
     }
 }
@@ -373,9 +421,7 @@ mod tests {
 
     #[test]
     fn test_client_builder_oauth1() {
-        let client = Client::builder()
-            .oauth1("ck", "cs", "at", "ats")
-            .build();
+        let client = Client::builder().oauth1("ck", "cs", "at", "ats").build();
 
         assert!(client.is_ok());
         let client = client.unwrap();
@@ -427,7 +473,7 @@ mod tests {
     #[test]
     fn test_client_accessors() {
         let client = Client::new("ck", "cs", "at", "ats").unwrap();
-        
+
         // Verify we can access internal components
         let _http = client.http_client();
         let _auth = client.auth_provider();
@@ -436,10 +482,10 @@ mod tests {
 
     #[test]
     fn test_client_builder_with_custom_auth() {
-        let auth = Arc::new(crate::auth::oauth1::OAuth1Provider::new("ck", "cs", "at", "ats"));
-        let client = Client::builder()
-            .auth(auth)
-            .build();
+        let auth = Arc::new(crate::auth::oauth1::OAuth1Provider::new(
+            "ck", "cs", "at", "ats",
+        ));
+        let client = Client::builder().auth(auth).build();
         assert!(client.is_ok());
     }
 
@@ -458,5 +504,130 @@ mod tests {
         } else {
             panic!("Expected Config error for conflicting options");
         }
+    }
+
+    #[test]
+    fn test_client_builder_with_rate_limit() {
+        let rate_config = RateLimitConfig::custom()
+            .global_limit(100)
+            .per_endpoint_tracking(true)
+            .auto_wait(true)
+            .build()
+            .unwrap();
+
+        let client = Client::builder()
+            .oauth1("ck", "cs", "at", "ats")
+            .rate_limit(rate_config.clone())
+            .build();
+
+        assert!(client.is_ok());
+        let client = client.unwrap();
+        assert_eq!(client.rate_limit_config().global_limit(), Some(100));
+    }
+
+    #[test]
+    fn test_client_builder_with_retry_policy() {
+        let retry_policy = RetryPolicy::custom()
+            .max_retries(5)
+            .initial_interval(std::time::Duration::from_millis(500))
+            .max_interval(std::time::Duration::from_secs(30))
+            .multiplier(2.0)
+            .jitter(true)
+            .build();
+
+        assert!(retry_policy.is_ok());
+        let retry_policy = retry_policy.unwrap();
+
+        let client = Client::builder()
+            .oauth1("ck", "cs", "at", "ats")
+            .retry_policy(retry_policy.clone())
+            .build();
+
+        assert!(client.is_ok());
+        let client = client.unwrap();
+        assert_eq!(client.retry_policy().max_retries(), 5);
+    }
+
+    #[test]
+    fn test_client_builder_full_configuration() {
+        let client = Client::builder()
+            .oauth1("ck", "cs", "at", "ats")
+            .base_url("https://api.test.com")
+            .timeout(std::time::Duration::from_secs(45))
+            .rate_limit(RateLimitConfig::default())
+            .retry_policy(RetryPolicy::aggressive())
+            .build();
+
+        assert!(client.is_ok());
+        let client = client.unwrap();
+        assert_eq!(client.base_url(), "https://api.test.com");
+        assert_eq!(client.retry_policy().max_retries(), 5); // aggressive = 5 retries
+    }
+
+    #[test]
+    fn test_retry_policy_presets() {
+        let default_policy = RetryPolicy::new();
+        assert_eq!(default_policy.max_retries(), 3);
+
+        let none_policy = RetryPolicy::none();
+        assert_eq!(none_policy.max_retries(), 0);
+
+        let aggressive_policy = RetryPolicy::aggressive();
+        assert_eq!(aggressive_policy.max_retries(), 5);
+    }
+
+    #[test]
+    fn test_rate_limit_config_presets() {
+        let default_config = RateLimitConfig::new();
+        assert!(default_config.per_endpoint_tracking());
+        assert!(default_config.auto_wait());
+
+        let disabled_config = RateLimitConfig::disabled();
+        assert!(!disabled_config.per_endpoint_tracking());
+        assert!(!disabled_config.auto_wait());
+    }
+
+    #[test]
+    fn test_retry_policy_builder_validation() {
+        // Test that validation works
+        let result = RetryPolicy::custom().multiplier(-1.0).build();
+        assert!(result.is_err());
+
+        let result = RetryPolicy::custom()
+            .initial_interval(std::time::Duration::from_secs(100))
+            .max_interval(std::time::Duration::from_secs(10))
+            .build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rate_limit_config_builder() {
+        let config = RateLimitConfig::custom()
+            .global_limit(50)
+            .per_endpoint_tracking(false)
+            .build();
+
+        assert!(config.is_ok());
+        let config = config.unwrap();
+        assert_eq!(config.global_limit(), Some(50));
+        assert!(!config.per_endpoint_tracking());
+    }
+
+    #[test]
+    fn test_rate_limit_config_builder_validation() {
+        // Test that zero global_limit is rejected
+        let result = RateLimitConfig::custom().global_limit(0).build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_retry_policy_builder_nan_validation() {
+        // Test that NaN is rejected
+        let result = RetryPolicy::custom().multiplier(f64::NAN).build();
+        assert!(result.is_err());
+
+        // Test that Infinity is rejected
+        let result = RetryPolicy::custom().multiplier(f64::INFINITY).build();
+        assert!(result.is_err());
     }
 }

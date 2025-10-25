@@ -245,7 +245,8 @@ mod tests {
         let response: ApiResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
 
         let serialized = serde_json::to_string(&response).unwrap();
-        let deserialized: ApiResponse<serde_json::Value> = serde_json::from_str(&serialized).unwrap();
+        let deserialized: ApiResponse<serde_json::Value> =
+            serde_json::from_str(&serialized).unwrap();
 
         assert!(response.data.is_some());
         assert!(deserialized.data.is_some());
@@ -391,4 +392,3 @@ mod tests {
         assert!(includes.additional_fields.contains_key("future_includes"));
     }
 }
-
