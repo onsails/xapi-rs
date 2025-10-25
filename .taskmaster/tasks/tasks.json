@@ -384,8 +384,8 @@
               1,
               2
             ],
-            "details": "Define and apply Rust structs for all request and response payloads. Implement builder patterns for flexible and safe request creation, ensuring type safety throughout the endpoint logic.",
-            "status": "pending",
+            "details": "Define and apply Rust structs for all request and response payloads. Implement builder patterns for flexible and safe request creation, ensuring type safety throughout the endpoint logic.\n<info added on 2025-10-25T22:40:12.150Z>\nTask 7.3 has been completed as part of the implementation of Tasks 7.1 and 7.2. The following type-safe models and builder patterns are already in place:\n\nType-Safe Models:\n- TweetRequest with TweetRequestBuilder in src/builder/request.rs\n- Tweet model in src/models/tweet.rs\n- User model in src/models/user.rs\n- DeleteResponse in src/models/tweet.rs\n- All models properly use Serde derives for serialization/deserialization\n\nBuilder Patterns:\n- TweetRequestBuilder with validation (requires text field, validates text length)\n- Fluent API implementation with method chaining\n- Result-based error handling in build() method\n\nType Safety Throughout:\n- TweetId and UserId type aliases for strong typing\n- Strongly-typed function signatures across all endpoints\n- Compile-time safety enforced via builder pattern validation\n\nAll implemented endpoints (post_tweet, get_tweet, delete_tweet, get_user, get_user_by_username) are already using these type-safe models and patterns.\n</info added on 2025-10-25T22:40:12.150Z>",
+            "status": "done",
             "testStrategy": "Unit tests for model serialization/deserialization and builder correctness."
           },
           {
@@ -397,8 +397,8 @@
               2,
               3
             ],
-            "details": "Handle errors from HttpClient, authentication, and API responses. Map errors to appropriate Rust error types and ensure all responses are converted to the correct models, propagating errors as needed.",
-            "status": "pending",
+            "details": "Handle errors from HttpClient, authentication, and API responses. Map errors to appropriate Rust error types and ensure all responses are converted to the correct models, propagating errors as needed.\n<info added on 2025-10-25T22:40:19.170Z>\nError handling and response mapping implementation is complete with the following components:\n\n- Implemented handle_response<T>() helper method in src/client.rs that:\n  - Parses X API structured error responses into ApiError type\n  - Maps HTTP status codes to appropriate Error variants (404 → Error::NotFound, 4xx/5xx → Error::Api)\n  - Handles missing data with Error::InvalidResponse\n  - Propagates all errors using the ? operator for fail-fast behavior\n\n- Created ApiResponse<T> wrapper for all endpoint responses that:\n  - Extracts the .data field from API responses\n  - Deserializes content to strongly-typed models (Tweet, User, DeleteResponse)\n  - Works generically with any response type through handle_response<T>\n\n- Enhanced error context with:\n  - Resource IDs included in error messages\n  - Preserved HTTP status codes\n  - Structured X API error parsing with graceful fallback\n\nThis implementation was completed during Task 7.1 refactoring when the handle_response() helper method was introduced.\n</info added on 2025-10-25T22:40:19.170Z>",
+            "status": "done",
             "testStrategy": "Unit tests for error cases; integration tests for error propagation and mapping."
           },
           {
@@ -1031,7 +1031,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-25T22:21:12.445Z",
+      "updated": "2025-10-25T22:40:19.936Z",
       "description": "Tasks for master context"
     }
   }
