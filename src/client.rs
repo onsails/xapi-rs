@@ -364,6 +364,76 @@ impl<H: HttpClient + Clone> Client<H> {
         let response = self.http.execute(http_request).await?;
         self.handle_response(response, Some(&id)).await
     }
+
+    // User Endpoints
+
+    /// Get a user by their user ID
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The user ID
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let user = client.get_user("1234567890").await?;
+    /// println!("User: @{}", user.username);
+    /// ```
+    pub async fn get_user(
+        &self,
+        id: impl Into<crate::models::common::UserId>,
+    ) -> Result<crate::models::user::User> {
+        let id = id.into();
+        let url = format!("{}/2/users/{}", self.base_url, id);
+
+        let http_request = reqwest::Request::new(
+            reqwest::Method::GET,
+            url.parse().map_err(|e| {
+                crate::error::Error::Config(format!("Invalid URL: {}", e))
+            })?,
+        );
+
+        // Authenticate the request
+        let http_request = self.auth.authenticate(http_request).await?;
+
+        // Execute the request and handle response
+        let response = self.http.execute(http_request).await?;
+        self.handle_response(response, Some(&id)).await
+    }
+
+    /// Get a user by their username
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username (without @ symbol)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let user = client.get_user_by_username("jack").await?;
+    /// println!("User ID: {}", user.id);
+    /// ```
+    pub async fn get_user_by_username(
+        &self,
+        username: impl Into<String>,
+    ) -> Result<crate::models::user::User> {
+        let username = username.into();
+        let url = format!("{}/2/users/by/username/{}", self.base_url, username);
+
+        let http_request = reqwest::Request::new(
+            reqwest::Method::GET,
+            url.parse().map_err(|e| {
+                crate::error::Error::Config(format!("Invalid URL: {}", e))
+            })?,
+        );
+
+        // Authenticate the request
+        let http_request = self.auth.authenticate(http_request).await?;
+
+        // Execute the request and handle response
+        let response = self.http.execute(http_request).await?;
+        self.handle_response(response, Some(&username)).await
+    }
 }
 
 /// Builder for configuring and constructing a Client

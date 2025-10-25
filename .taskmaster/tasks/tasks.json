@@ -372,8 +372,8 @@
             "title": "Implement User Endpoints (get by ID, get by username)",
             "description": "Develop user endpoints: get_user (by ID) and get_user_by_username in src/endpoints/users.rs.",
             "dependencies": [],
-            "details": "Create handler functions for fetching users by ID and by username. Use strongly-typed models and builder patterns. Integrate with XClient, AuthProvider, and HttpClient as required.",
-            "status": "pending",
+            "details": "Create handler functions for fetching users by ID and by username. Use strongly-typed models and builder patterns. Integrate with XClient, AuthProvider, and HttpClient as required.\n<info added on 2025-10-25T22:21:11.785Z>\nSuccessfully implemented user endpoints in src/client.rs:\n\n1. get_user(UserId) -> Result<User>:\n   - GET request to /2/users/{id}\n   - Authenticates via OAuth1Provider\n   - Uses handle_response() helper for DRY error handling\n   - Returns User model\n\n2. get_user_by_username(String) -> Result<User>:\n   - GET request to /2/users/by/username/{username}\n   - Authenticates via OAuth1Provider\n   - Uses handle_response() helper\n   - Returns User model\n\nImplementation leverages the refactored handle_response() method from Task 7.1, providing consistent error handling, proper X API error parsing, 404 handling with resource context, and clean maintainable code. All 103 tests are passing with 0 clippy warnings. Both endpoints follow the same pattern as tweet endpoints, are fully integrated with Client, Auth, and HTTP components, and maintain type safety with the UserId type alias.\n</info added on 2025-10-25T22:21:11.785Z>",
+            "status": "done",
             "testStrategy": "Unit tests for request/response; integration tests for user retrieval scenarios."
           },
           {
@@ -1031,7 +1031,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-25T20:33:43.734Z",
+      "updated": "2025-10-25T22:21:12.445Z",
       "description": "Tasks for master context"
     }
   }
