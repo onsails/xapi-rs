@@ -106,6 +106,12 @@ impl TweetRequestBuilder {
         self
     }
 
+    /// Set direct message deep link
+    pub fn direct_message_deep_link(mut self, link: impl Into<String>) -> Self {
+        self.direct_message_deep_link = Some(link.into());
+        self
+    }
+
     /// Build the tweet request
     ///
     /// # Errors
@@ -129,7 +135,7 @@ impl TweetRequestBuilder {
 }
 
 /// Response from deleting a tweet
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 pub struct DeleteResponse {
     /// Whether the deletion was successful
     pub deleted: bool,
