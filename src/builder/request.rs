@@ -3,6 +3,13 @@
 use crate::models::common::{ReplySettings, TweetId};
 use serde::Serialize;
 
+/// Reply settings for a tweet (nested structure per X API v2 spec)
+#[derive(Debug, Clone, Serialize)]
+pub struct Reply {
+    /// ID of the tweet being replied to
+    pub in_reply_to_tweet_id: TweetId,
+}
+
 /// Request to create a new tweet
 ///
 /// Use `TweetRequest::builder()` for ergonomic construction.
@@ -10,6 +17,10 @@ use serde::Serialize;
 pub struct TweetRequest {
     /// The text content of the tweet (required)
     pub text: String,
+
+    /// Reply settings (nested under "reply" object per API spec)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply: Option<Reply>,
 
     /// Who can reply to this tweet
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -30,11 +41,6 @@ pub struct TweetRequest {
     /// ID of tweet being quoted
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quote_tweet_id: Option<TweetId>,
-
-    /// ID of tweet being replied to
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "in_reply_to_tweet_id")]
-    pub reply_to_tweet_id: Option<TweetId>,
 }
 
 impl TweetRequest {
@@ -42,12 +48,12 @@ impl TweetRequest {
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
+            reply: None,
             reply_settings: None,
             direct_message_deep_link: None,
             for_super_followers_only: None,
             media_ids: None,
             quote_tweet_id: None,
-            reply_to_tweet_id: None,
         }
     }
 
@@ -61,12 +67,12 @@ impl TweetRequest {
 #[derive(Debug, Default)]
 pub struct TweetRequestBuilder {
     text: Option<String>,
+    reply_to_tweet_id: Option<TweetId>,
     reply_settings: Option<ReplySettings>,
     direct_message_deep_link: Option<String>,
     for_super_followers_only: Option<bool>,
     media_ids: Option<Vec<String>>,
     quote_tweet_id: Option<TweetId>,
-    reply_to_tweet_id: Option<TweetId>,
 }
 
 impl TweetRequestBuilder {
@@ -116,20 +122,38 @@ impl TweetRequestBuilder {
     ///
     /// # Errors
     ///
-    /// Returns an error if text is not set
+    /// Returns an error if:
+    /// - Text is not set
+    /// - Text is empty or exceeds 280 characters
     pub fn build(self) -> crate::error::Result<TweetRequest> {
         let text = self.text.ok_or_else(|| {
             crate::error::Error::Config("Tweet text is required".to_string())
         })?;
 
+        // Validate tweet text length
+        let char_count = text.chars().count();
+        if char_count == 0 {
+            return Err(crate::error::Error::InvalidRequest(
+                "Tweet text cannot be empty".to_string(),
+            ));
+        }
+        if char_count > 280 {
+            return Err(crate::error::Error::InvalidRequest(format!(
+                "Tweet text too long: {} characters (max 280)",
+                char_count
+            )));
+        }
+
         Ok(TweetRequest {
             text,
+            reply: self.reply_to_tweet_id.map(|id| Reply {
+                in_reply_to_tweet_id: id,
+            }),
             reply_settings: self.reply_settings,
             direct_message_deep_link: self.direct_message_deep_link,
             for_super_followers_only: self.for_super_followers_only,
             media_ids: self.media_ids,
             quote_tweet_id: self.quote_tweet_id,
-            reply_to_tweet_id: self.reply_to_tweet_id,
         })
     }
 }
@@ -182,7 +206,8 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(request.reply_to_tweet_id, Some("1234567890".to_string()));
+        assert!(request.reply.is_some());
+        assert_eq!(request.reply.unwrap().in_reply_to_tweet_id, "1234567890");
     }
 
     #[test]
@@ -191,5 +216,44 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("Test"));
         assert!(json.contains("text"));
+    }
+
+    #[test]
+    fn test_tweet_request_empty_text_validation() {
+        let result = TweetRequest::builder()
+            .text("")
+            .build();
+        assert!(result.is_err());
+        if let Err(crate::error::Error::InvalidRequest(msg)) = result {
+            assert!(msg.contains("empty"));
+        }
+    }
+
+    #[test]
+    fn test_tweet_request_too_long_validation() {
+        let long_text = "a".repeat(281);
+        let result = TweetRequest::builder()
+            .text(long_text)
+            .build();
+        assert!(result.is_err());
+        if let Err(crate::error::Error::InvalidRequest(msg)) = result {
+            assert!(msg.contains("too long"));
+            assert!(msg.contains("281"));
+        }
+    }
+
+    #[test]
+    fn test_tweet_request_reply_serialization() {
+        let request = TweetRequest::builder()
+            .text("Reply")
+            .reply_to("1234")
+            .build()
+            .unwrap();
+
+        let json = serde_json::to_string(&request).unwrap();
+        // Verify nested structure
+        assert!(json.contains("\"reply\""));
+        assert!(json.contains("in_reply_to_tweet_id"));
+        assert!(json.contains("1234"));
     }
 }
