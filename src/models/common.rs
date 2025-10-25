@@ -208,7 +208,7 @@ pub struct PollOption {
 }
 
 /// Reply settings for tweets
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ReplySettings {

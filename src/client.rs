@@ -196,6 +196,191 @@ impl<H: HttpClient + Clone> Client<H> {
     pub(crate) fn retry_policy(&self) -> &RetryPolicy {
         &self.retry_policy
     }
+
+    // Tweet Endpoints
+
+    /// Post a new tweet
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The tweet content and options
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use x_api_client::builder::request::TweetRequest;
+    ///
+    /// let tweet = client.post_tweet(TweetRequest::new("Hello, world!")).await?;
+    /// println!("Posted tweet with ID: {}", tweet.id);
+    /// ```
+    pub async fn post_tweet(
+        &self,
+        request: crate::builder::request::TweetRequest,
+    ) -> Result<crate::models::tweet::Tweet> {
+        // Build the HTTP request
+        let url = format!("{}/2/tweets", self.base_url);
+        let mut http_request = reqwest::Request::new(
+            reqwest::Method::POST,
+            url.parse().map_err(|e| {
+                crate::error::Error::Config(format!("Invalid URL: {}", e))
+            })?,
+        );
+
+        // Set the JSON body
+        let body = serde_json::to_vec(&request)?;
+        *http_request.body_mut() = Some(body.into());
+        http_request.headers_mut().insert(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+
+        // Authenticate the request
+        let http_request = self.auth.authenticate(http_request).await?;
+
+        // Execute the request
+        let response = self.http.execute(http_request).await?;
+
+        // Check for HTTP errors
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(crate::error::Error::Api(Box::new(
+                crate::error::ApiErrorDetail::new(
+                    status.as_str(),
+                    error_text,
+                )
+                .with_status(status.as_u16()),
+            )));
+        }
+
+        // Parse the response
+        let response_text = response.text().await?;
+        let api_response: crate::models::common::ApiResponse<crate::models::tweet::Tweet> =
+            serde_json::from_str(&response_text)?;
+
+        // Extract the tweet from the response
+        api_response
+            .data
+            .ok_or_else(|| crate::error::Error::InvalidResponse("No tweet data in response".to_string()))
+    }
+
+    /// Get a tweet by ID
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The tweet ID
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let tweet = client.get_tweet("1234567890").await?;
+    /// println!("Tweet: {}", tweet.text);
+    /// ```
+    pub async fn get_tweet(
+        &self,
+        id: impl Into<crate::models::common::TweetId>,
+    ) -> Result<crate::models::tweet::Tweet> {
+        let id = id.into();
+        let url = format!("{}/2/tweets/{}", self.base_url, id);
+
+        let http_request = reqwest::Request::new(
+            reqwest::Method::GET,
+            url.parse().map_err(|e| {
+                crate::error::Error::Config(format!("Invalid URL: {}", e))
+            })?,
+        );
+
+        // Authenticate the request
+        let http_request = self.auth.authenticate(http_request).await?;
+
+        // Execute the request
+        let response = self.http.execute(http_request).await?;
+
+        // Check for HTTP errors
+        let status = response.status();
+        if !status.is_success() {
+            if status.as_u16() == 404 {
+                return Err(crate::error::Error::NotFound(format!("Tweet {} not found", id)));
+            }
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(crate::error::Error::Api(Box::new(
+                crate::error::ApiErrorDetail::new(
+                    status.as_str(),
+                    error_text,
+                )
+                .with_status(status.as_u16()),
+            )));
+        }
+
+        // Parse the response
+        let response_text = response.text().await?;
+        let api_response: crate::models::common::ApiResponse<crate::models::tweet::Tweet> =
+            serde_json::from_str(&response_text)?;
+
+        // Extract the tweet from the response
+        api_response
+            .data
+            .ok_or_else(|| crate::error::Error::InvalidResponse("No tweet data in response".to_string()))
+    }
+
+    /// Delete a tweet by ID
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The tweet ID to delete
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let response = client.delete_tweet("1234567890").await?;
+    /// assert!(response.deleted);
+    /// ```
+    pub async fn delete_tweet(
+        &self,
+        id: impl Into<crate::models::common::TweetId>,
+    ) -> Result<crate::builder::request::DeleteResponse> {
+        let id = id.into();
+        let url = format!("{}/2/tweets/{}", self.base_url, id);
+
+        let http_request = reqwest::Request::new(
+            reqwest::Method::DELETE,
+            url.parse().map_err(|e| {
+                crate::error::Error::Config(format!("Invalid URL: {}", e))
+            })?,
+        );
+
+        // Authenticate the request
+        let http_request = self.auth.authenticate(http_request).await?;
+
+        // Execute the request
+        let response = self.http.execute(http_request).await?;
+
+        // Check for HTTP errors
+        let status = response.status();
+        if !status.is_success() {
+            if status.as_u16() == 404 {
+                return Err(crate::error::Error::NotFound(format!("Tweet {} not found", id)));
+            }
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(crate::error::Error::Api(Box::new(
+                crate::error::ApiErrorDetail::new(
+                    status.as_str(),
+                    error_text,
+                )
+                .with_status(status.as_u16()),
+            )));
+        }
+
+        // Parse the response
+        let response_text = response.text().await?;
+        let api_response: crate::models::common::ApiResponse<crate::builder::request::DeleteResponse> =
+            serde_json::from_str(&response_text)?;
+
+        // Extract the delete response
+        api_response
+            .data
+            .ok_or_else(|| crate::error::Error::InvalidResponse("No delete response data".to_string()))
+    }
 }
 
 /// Builder for configuring and constructing a Client

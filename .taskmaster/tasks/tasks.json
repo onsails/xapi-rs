@@ -363,8 +363,8 @@
             "title": "Implement Tweet Endpoints (post, get, delete)",
             "description": "Develop the core tweet endpoints: post_tweet, get_tweet, and delete_tweet in src/endpoints/tweets.rs.",
             "dependencies": [],
-            "details": "Define handler functions for posting, retrieving, and deleting tweets. Ensure each endpoint uses type-safe request and response models, integrates with XClient, AuthProvider, and HttpClient, and follows builder patterns for request construction.",
-            "status": "pending",
+            "details": "Define handler functions for posting, retrieving, and deleting tweets. Ensure each endpoint uses type-safe request and response models, integrates with XClient, AuthProvider, and HttpClient, and follows builder patterns for request construction.\n<info added on 2025-10-25T20:33:43.244Z>\nSuccessfully implemented all three tweet endpoints in src/client.rs:\n\n1. post_tweet(TweetRequest) -> Result<Tweet>\n   - Builds POST request to /2/tweets\n   - Serializes TweetRequest to JSON body\n   - Adds Content-Type header\n   - Authenticates via OAuth1Provider\n   - Parses ApiResponse<Tweet>\n   - Handles errors (API errors, missing data)\n\n2. get_tweet(TweetId) -> Result<Tweet>\n   - Builds GET request to /2/tweets/{id}\n   - Authenticates the request\n   - Handles 404 with NotFound error\n   - Parses ApiResponse<Tweet>\n   - Extracts tweet data\n\n3. delete_tweet(TweetId) -> Result<DeleteResponse>\n   - Builds DELETE request to /2/tweets/{id}\n   - Authenticates the request\n   - Handles 404 with NotFound error\n   - Parses ApiResponse<DeleteResponse>\n   - Returns deletion confirmation\n\nCreated request models in src/builder/request.rs:\n- TweetRequest struct with all PRD fields\n- TweetRequestBuilder with fluent API\n- Validation: requires text field\n- DeleteResponse for delete confirmation\n- Full Serde serialization support\n\nAdded 5 new tests:\n- test_tweet_request_new\n- test_tweet_request_builder\n- test_tweet_request_builder_missing_text (validation)\n- test_tweet_request_builder_with_reply\n- test_tweet_request_serialization\n\nAll implementations follow quality standards with proper error handling, type-safe models, and OAuth 1.0a authentication integration.\n</info added on 2025-10-25T20:33:43.244Z>",
+            "status": "done",
             "testStrategy": "Unit tests for each handler; integration tests with mock server for endpoint behavior."
           },
           {
@@ -1031,7 +1031,7 @@
     ],
     "metadata": {
       "created": "2025-10-23T17:33:28.107Z",
-      "updated": "2025-10-24T18:39:56.085Z",
+      "updated": "2025-10-25T20:33:43.734Z",
       "description": "Tasks for master context"
     }
   }
